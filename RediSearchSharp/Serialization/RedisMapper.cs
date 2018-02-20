@@ -11,7 +11,7 @@ namespace RediSearchSharp.Serialization
 {
     public static class RedisMapper
     {
-        private static readonly Dictionary<Type, Dictionary<string, Type>> RegisteredTypes = new Dictionary<Type, Dictionary<string, Type>>();
+        public static readonly Dictionary<Type, Dictionary<string, Type>> TypesWithRegisteredProperties = new Dictionary<Type, Dictionary<string, Type>>();
         private static readonly Dictionary<Type, Func<object, RedisValue>> ToRedisValueConverters = new Dictionary<Type, Func<object, RedisValue>>
         {
             { typeof(int), o => (int)o },
@@ -29,7 +29,7 @@ namespace RediSearchSharp.Serialization
                         ((GeoPosition)o).Latitude.ToString("G17", CultureInfo.InvariantCulture))
             }
         };
-        private static readonly Dictionary<Type, Func<RedisValue, object>> RedisConverters = new Dictionary<Type, Func<RedisValue, object>>
+        private static readonly Dictionary<Type, Func<RedisValue, object>> FromRedisValueConverters = new Dictionary<Type, Func<RedisValue, object>>
         {
             { typeof(int), o => (int)o },
             { typeof(float), o => (float)o },
@@ -52,7 +52,7 @@ namespace RediSearchSharp.Serialization
 
         public static void UnregisterAll()
         {
-            RegisteredTypes.Clear();
+            TypesWithRegisteredProperties.Clear();
         }
 
         public static void RegisterType<T>(bool throwOnUnsupportedProperty = true)
@@ -75,14 +75,14 @@ namespace RediSearchSharp.Serialization
                 if (throwOnUnsupportedProperty &&
                     !ImplementsICollectionOfType<string>(propertyType) &&
                     !ImplementsICollectionOfType<Guid>(propertyType) &&
-                    !RedisConverters.ContainsKey(propertyType))
+                    !FromRedisValueConverters.ContainsKey(propertyType))
                 {
                     throw new ArgumentException("Unsupported property type detected on property: {0}", property);
                 }
                 typeProperties.Add(property, propertyType);
             }
 
-            RegisteredTypes.Add(typeof(T), typeProperties);
+            TypesWithRegisteredProperties.Add(typeof(T), typeProperties);
         }
 
         public static Dictionary<string, RedisValue> MapToRedisValues<TEntity>(TEntity entity)
@@ -94,7 +94,7 @@ namespace RediSearchSharp.Serialization
 
             var objectAccessor = ObjectAccessor.Create(entity);
             var hashEntries = new Dictionary<string, RedisValue>();
-            foreach (var properties in RegisteredTypes[objectType])
+            foreach (var properties in TypesWithRegisteredProperties[objectType])
             {
                 var hashKey = properties.Key;
                 RedisValue hashValue;
@@ -184,7 +184,7 @@ namespace RediSearchSharp.Serialization
 
             foreach (var hashEntry in fields)
             {
-                var propertyType = RegisteredTypes[typeof(T)][hashEntry.Key];
+                var propertyType = TypesWithRegisteredProperties[typeof(T)][hashEntry.Key];
                 if (ImplementsICollectionOfType<string>(propertyType))
                 {
                     objectAccessor[objectRead, hashEntry.Key] =
@@ -198,7 +198,7 @@ namespace RediSearchSharp.Serialization
                 }
                 else
                 {
-                    objectAccessor[objectRead, hashEntry.Key] = RedisConverters[propertyType](hashEntry.Value);
+                    objectAccessor[objectRead, hashEntry.Key] = FromRedisValueConverters[propertyType](hashEntry.Value);
                 }
             }
 
@@ -208,7 +208,7 @@ namespace RediSearchSharp.Serialization
         public static bool IsRegisteredType<T>()
         {
             var entityType = typeof(T);
-            return RegisteredTypes.ContainsKey(entityType);
+            return TypesWithRegisteredProperties.ContainsKey(entityType);
         }
     }
 }
