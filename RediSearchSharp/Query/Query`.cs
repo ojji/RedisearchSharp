@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using RediSearchSharp.Internal;
 using RediSearchSharp.Utils;
 
 namespace RediSearchSharp.Query
@@ -372,7 +373,9 @@ namespace RediSearchSharp.Query
             {
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("INKEYS"));
                 args.Add(_limitKeys.Length);
-                foreach (var key in _limitKeys)
+                var schemaInfo = SchemaInfo.GetSchemaInfo<TEntity>();
+
+                foreach (var key in _limitKeys.Select(id => string.Join(schemaInfo.DocumentIdPrefix, id)))
                 {
                     args.Add(key);
                 }

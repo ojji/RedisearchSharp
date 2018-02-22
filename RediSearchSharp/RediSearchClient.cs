@@ -14,7 +14,8 @@ namespace RediSearchSharp
         private readonly IRedisearchSerializer _serializer;
         private readonly IConnectionMultiplexer _redisConnection;
 
-        public RediSearchClient(IConnectionMultiplexer redisConnection) : this(new RedisearchSerializer(), redisConnection) 
+        public RediSearchClient(IConnectionMultiplexer redisConnection) : this(new RedisearchSerializer(),
+            redisConnection)
         {
         }
 
@@ -24,33 +25,49 @@ namespace RediSearchSharp
             _redisConnection = redisConnection ?? throw new ArgumentNullException(nameof(redisConnection));
         }
 
-        public bool AddDocument<TEntity>(string indexName, TEntity entity, double score = 1.0d)
+        public bool AddDocument<TEntity>(TEntity entity, double score = 1.0d)
             where TEntity : class, IRedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
             var serializedDocument = _serializer.Serialize(entity, score);
 
-            return (string)database.Execute("FT.ADD", BuildAddDocumentParameters(indexName, serializedDocument)) == "OK";
+            try
+            {
+                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument)) ==
+                       "OK";
+            }
+            catch (RedisServerException)
+            {
+                return false;
+            }
         }
 
-        public async Task<bool> AddDocumentAsync<TEntity>(string indexName, TEntity entity, double score = 1.0d)
+        public async Task<bool> AddDocumentAsync<TEntity>(TEntity entity, double score = 1.0d)
             where TEntity : class, IRedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
             var serializedDocument = _serializer.Serialize(entity, score);
 
-            var response = (string) await database
-                .ExecuteAsync("FT.ADD", BuildAddDocumentParameters(indexName, serializedDocument))
-                .ConfigureAwait(false);
-
-            return response == "OK";
+            try
+            {
+                var response = (string) await database
+                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument))
+                    .ConfigureAwait(false);
+                return response == "OK";
+            }
+            catch (RedisServerException)
+            {
+                return false;
+            }
         }
 
-        private object[] BuildAddDocumentParameters(string indexName, Document doc)
+        private object[] BuildAddDocumentParameters<TEntity>(Document doc)
         {
+            var schemaInfo = SchemaInfo.GetSchemaInfo<TEntity>();
+
             var parameters = new List<object>
             {
-                RedisearchIndexCache.GetBoxedIndexName(indexName),
+                schemaInfo.IndexName,
                 doc.Id,
                 doc.Score,
                 RedisearchIndexCache.GetBoxedLiteral("FIELDS")
@@ -62,27 +79,15 @@ namespace RediSearchSharp
                 parameters.Add(fieldPairs.Value);
             }
 
-            return parameters.ToArray();    
+            return parameters.ToArray();
         }
 
-        public SearchResult<TEntity> Search<TEntity>(string indexName, Query<TEntity> query) where TEntity : class, IRedisearchSerializable<TEntity>, new()
+        public SearchResult<TEntity> Search<TEntity>(Query<TEntity> query)
+            where TEntity : class, IRedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
 
-            var result = (RedisResult[])database.Execute("FT.SEARCH", BuildSearchDocumentParameters(indexName, query));
-
-            return new SearchResult<TEntity>(
-                _serializer, 
-                result,  
-                query.Options.WithScores, 
-                query.Options.WithPayloads);
-        }
-
-        public async Task<SearchResult<TEntity>> SearchAsync<TEntity>(string indexName, Query<TEntity> query) where TEntity : class, IRedisearchSerializable<TEntity>, new()
-        {
-            var database = _redisConnection.GetDatabase();
-
-            var result = (RedisResult[])await database.ExecuteAsync("FT.SEARCH", BuildSearchDocumentParameters(indexName, query)).ConfigureAwait(false);
+            var result = (RedisResult[]) database.Execute("FT.SEARCH", BuildSearchDocumentParameters(query));
 
             return new SearchResult<TEntity>(
                 _serializer,
@@ -91,11 +96,27 @@ namespace RediSearchSharp
                 query.Options.WithPayloads);
         }
 
-        private object[] BuildSearchDocumentParameters<TEntity>(string indexName, Query<TEntity> query)
+        public async Task<SearchResult<TEntity>> SearchAsync<TEntity>(Query<TEntity> query)
+            where TEntity : class, IRedisearchSerializable<TEntity>, new()
         {
+            var database = _redisConnection.GetDatabase();
+
+            var result = (RedisResult[]) await database.ExecuteAsync("FT.SEARCH", BuildSearchDocumentParameters(query))
+                .ConfigureAwait(false);
+
+            return new SearchResult<TEntity>(
+                _serializer,
+                result,
+                query.Options.WithScores,
+                query.Options.WithPayloads);
+        }
+
+        private object[] BuildSearchDocumentParameters<TEntity>(Query<TEntity> query)
+        {
+            var schemaInfo = SchemaInfo.GetSchemaInfo<TEntity>();
             var parameters = new List<object>
             {
-                RedisearchIndexCache.GetBoxedIndexName(indexName)
+                schemaInfo.IndexName
             };
 
             query.SerializeRedisArgs(parameters);

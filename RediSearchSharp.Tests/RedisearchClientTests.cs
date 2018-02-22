@@ -1,12 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
+using NUnit.Framework;
 using RediSearchSharp.Query;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
-using Xunit;
 
 namespace RediSearchSharp.Tests
 {
+    [TestFixture]
     public class RedisearchClientTests
     {
         public class Car : RedisearchSerializable<Car>
@@ -24,46 +27,321 @@ namespace RediSearchSharp.Tests
             public override Expression<Func<Car, string>> IdSelector => c => c.Id.ToString();
         }
 
-        private readonly IConnectionMultiplexer _connection;
-        public RedisearchClientTests()
+        [TestFixture]
+        public class AddDocument : AddDocumentFixture
         {
-            _connection = ConnectionMultiplexer.Connect("127.0.0.1");
+            [Test]
+            public void Should_Return_True_If_Successful()
+            {
+                var car = new Car
+                {
+                    Id = Guid.NewGuid(),
+                    Make = "Kia",
+                    Model = "Niro 1.6 GDi Hybrid Comfortline",
+                    Year = 2016,
+                    Country = "Korea",
+                    Engine = "hybrid",
+                    Class = "suv",
+                    Price = 25995,
+                    Location = new GeoPosition(19.03991, 47.49801)
+                };
+
+                var client = new RediSearchClient(Db);
+                Assert.That(client.AddDocument(car), Is.True);
+            }
+
+            public class UnexistingIndexObject : RedisearchSerializable<UnexistingIndexObject>
+            {
+                public int Id { get; set; }
+                public override Expression<Func<UnexistingIndexObject, string>> IdSelector => o => o.Id.ToString();
+            }
+
+            [Test]
+            public void Should_Return_False_When_Index_Does_Not_Exist()
+            {
+                var unexistingIndexObject = new UnexistingIndexObject
+                {
+                    Id = 1
+                };
+
+                var client = new RediSearchClient(Db);
+                Assert.That(client.AddDocument(unexistingIndexObject), Is.False);
+            }
+
+            [Test]
+            public void Should_Return_False_When_A_Document_Already_Exists_With_The_Same_Id()
+            {
+                var car1 = new Car
+                {
+                    Id = Guid.Empty,
+                    Make = "Kia",
+                    Model = "Niro 1.6 GDi Hybrid Comfortline",
+                    Year = 2016,
+                    Country = "Korea",
+                    Engine = "hybrid",
+                    Class = "suv",
+                    Price = 25995,
+                    Location = new GeoPosition(19.03991, 47.49801)
+                };
+
+                var car2 = new Car
+                {
+                    Id = Guid.Empty,
+                    Make = "Hyundai",
+                    Model = "Santa Fe 2.2 CRDi R 2WD Premium",
+                    Year = 2016,
+                    Country = "Korea",
+                    Engine = "diesel",
+                    Class = "suv",
+                    Price = 65022,
+                    Location = new GeoPosition(21.71671, 47.95539)
+                };
+
+                var client = new RediSearchClient(Db);
+                Assert.That(client.AddDocument(car1), Is.True);
+                Assert.That(client.AddDocument(car2), Is.False);
+            }
         }
 
-        [Fact]
-        public void AddDocument_Should_Add_Document()
+        [TestFixture]
+        public class AddDocumentAsync : AddDocumentFixture
         {
-            // "FT.CREATE" "cars-db" "SCHEMA" "Id" "TEXT" "NOSTEM" "Make" "TEXT" "NOSTEM" "Model" "TEXT" "NOSTEM" "Year" "NUMERIC" "SORTABLE" "Country" "TEXT" "NOSTEM" "Engine" "TEXT" "NOSTEM" "Class" "TEXT" "NOSTEM" "Price" "NUMERIC" "SORTABLE" "Location" "GEO"
-            var car = new Car
+            [Test]
+            public async Task Should_Return_True_If_Successful()
             {
-                Id = Guid.NewGuid(),
+                var car = new Car
+                {
+                    Id = Guid.NewGuid(),
+                    Make = "Kia",
+                    Model = "Niro 1.6 GDi Hybrid Comfortline",
+                    Year = 2016,
+                    Country = "Korea",
+                    Engine = "hybrid",
+                    Class = "suv",
+                    Price = 25995,
+                    Location = new GeoPosition(19.03991, 47.49801)
+                };
+
+                var client = new RediSearchClient(Db);
+                Assert.That(await client.AddDocumentAsync(car), Is.True);
+            }
+
+            public class UnexistingIndexObject : RedisearchSerializable<UnexistingIndexObject>
+            {
+                public int Id { get; set; }
+                public override Expression<Func<UnexistingIndexObject, string>> IdSelector => o => o.Id.ToString();
+            }
+
+            [Test]
+            public async Task Should_Return_False_When_Index_Does_Not_Exist()
+            {
+                var unexistingIndexObject = new UnexistingIndexObject
+                {
+                    Id = 1
+                };
+
+                var client = new RediSearchClient(Db);
+                Assert.That(await client.AddDocumentAsync(unexistingIndexObject), Is.False);
+            }
+
+            [Test]
+            public async Task Should_Return_False_When_A_Document_Already_Exists_With_The_Same_Id()
+            {
+                var car1 = new Car
+                {
+                    Id = Guid.Empty,
+                    Make = "Kia",
+                    Model = "Niro 1.6 GDi Hybrid Comfortline",
+                    Year = 2016,
+                    Country = "Korea",
+                    Engine = "hybrid",
+                    Class = "suv",
+                    Price = 25995,
+                    Location = new GeoPosition(19.03991, 47.49801)
+                };
+
+                var car2 = new Car
+                {
+                    Id = Guid.Empty,
+                    Make = "Hyundai",
+                    Model = "Santa Fe 2.2 CRDi R 2WD Premium",
+                    Year = 2016,
+                    Country = "Korea",
+                    Engine = "diesel",
+                    Class = "suv",
+                    Price = 65022,
+                    Location = new GeoPosition(21.71671, 47.95539)
+                };
+
+                var client = new RediSearchClient(Db);
+                Assert.That(await client.AddDocumentAsync(car1), Is.True);
+                Assert.That(await client.AddDocumentAsync(car2), Is.False);
+            }
+        }
+
+        [TestFixture]
+        public class Search : SearchFixture
+        {
+            [Test]
+            public void Search_Sample()
+            {
+                var query = new Query<Car>()
+                    .Where(c => c.Make)
+                    .MustMatch("kia")
+                    .Build();
+
+                var cars = Client.Search(query);
+                Assert.That(cars.Results, Has.One.Items);
+            }
+        }
+    }
+
+    public class SearchFixture
+    {
+        protected RediSearchClient Client { get; private set; }
+        private IConnectionMultiplexer Connection { get; set; }
+
+        [OneTimeSetUp]
+        public void SetupConnection()
+        {
+            Connection = ConnectionMultiplexer.Connect("127.0.0.1");
+            Client = new RediSearchClient(Connection);
+            CreateIndex();
+            foreach (var car in CarsDb)
+            {
+                Assert.That(Client.AddDocument(car), Is.True);
+            }
+        }
+
+        [OneTimeTearDown]
+        public void TeardownConnection()
+        {
+            DropIndex();
+            Connection.Dispose();
+        }
+
+        public void CreateIndex()
+        {
+            Assert.That(
+                (string)Connection.GetDatabase().Execute("FT.CREATE", "cars-index", "SCHEMA", "Id", "TEXT", "NOSTEM", "Make",
+                    "TEXT", "NOSTEM", "Model", "TEXT", "NOSTEM", "Year", "NUMERIC", "SORTABLE", "Country", "TEXT",
+                    "NOSTEM", "Engine", "TEXT", "NOSTEM", "Class", "TEXT", "NOSTEM", "Price", "NUMERIC", "SORTABLE",
+                    "Location", "GEO"), Is.EqualTo("OK"));
+        }
+
+        private void DropIndex()
+        {
+            Assert.That(
+                (string) Connection.GetDatabase().Execute("FT.DROP", "cars-index"), Is.EqualTo("OK"));
+        }
+        
+        private static List<RedisearchClientTests.Car> CarsDb => new List<RedisearchClientTests.Car>
+        {
+            new RedisearchClientTests.Car
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                Make = "Mercedes-Benz",
+                Model = "S 500 e",
+                Year = 2014,
+                Country = "germany",
+                Engine = "electric",
+                Class = "luxury-sedan",
+                Price = 124149,
+                Location = new GeoPosition(19.03991,47.49801)
+            },
+            new RedisearchClientTests.Car
+            {
+                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                Make = "Mercedes-Benz",
+                Model = "AMG GT",
+                Year = 2014,
+                Country = "germany",
+                Engine = "petrol",
+                Class = "luxury-coupe",
+                Price = 157506,
+                Location = new GeoPosition(20.3,48.21667)
+            },
+            new RedisearchClientTests.Car
+            {
+                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                Make = "Mercedes-Benz",
+                Model = "S 65 AMG Speedshift Plus 7G-Tronic auto 2d",
+                Year = 2017,
+                Country = "germany",
+                Engine = "petrol",
+                Class = "luxury-sedan",
+                Price = 197510,
+                Location = new GeoPosition(19.35515,47.59657)
+            },
+            new RedisearchClientTests.Car
+            {
+                Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
                 Make = "Kia",
                 Model = "Niro 1.6 GDi Hybrid Comfortline",
                 Year = 2016,
-                Country = "Korea",
+                Country = "korea",
                 Engine = "hybrid",
                 Class = "suv",
                 Price = 25995,
-                Location = new GeoPosition(19.03991, 47.49801)
-            };
-            
-            var client = new RediSearchClient(_connection);
-            Assert.True(client.AddDocument("cars-db",
-                car));
+                Location = new GeoPosition(19.03991,47.49801)
+            },
+            new RedisearchClientTests.Car
+            {
+                Id = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                Make = "Hyundai",
+                Model = "Santa Fe 2.2 CRDi R 2WD Premium",
+                Year = 2016,
+                Country = "korea",
+                Engine = "diesel",
+                Class = "suv",
+                Price = 65022,
+                Location = new GeoPosition(21.71671,47.95539)
+            },
+            new RedisearchClientTests.Car
+            {
+                Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                Make = "Audi",
+                Model = "Q5 2.0 TDI",
+                Year = 2017,
+                Country = "germany",
+                Engine = "diesel",
+                Class = "suv",
+                Price = 62710,
+                Location = new GeoPosition(18.23333,46.08333)
+            },
+        };
+    }
+
+    public class AddDocumentFixture
+    {
+        protected IConnectionMultiplexer Db { get; private set; }
+
+        [OneTimeSetUp]
+        public void SetupConnection()
+        {
+            Db = ConnectionMultiplexer.Connect("127.0.0.1");
         }
 
-        [Fact]
-        public void Search_Sample()
+        [OneTimeTearDown]
+        public void TeardownConnection()
         {
-            var client = new RediSearchClient(_connection);
+            Db.Dispose();
+        }
 
-            var query = new Query<Car>()
-                .Where(c => c.Make)
-                    .MustMatch("kia")
-                .Build();
+        [SetUp]
+        public void CreateIndex()
+        {
+            Assert.That(
+                (string) Db.GetDatabase().Execute("FT.CREATE", "cars-index", "SCHEMA", "Id", "TEXT", "NOSTEM", "Make",
+                    "TEXT", "NOSTEM", "Model", "TEXT", "NOSTEM", "Year", "NUMERIC", "SORTABLE", "Country", "TEXT",
+                    "NOSTEM", "Engine", "TEXT", "NOSTEM", "Class", "TEXT", "NOSTEM", "Price", "NUMERIC", "SORTABLE",
+                    "Location", "GEO"), Is.EqualTo("OK"));
+        }
 
-            var cars = client.Search("cars-db", query);
-            Assert.Single(cars.Results);
+        [TearDown]
+        public void CleanIndex()
+        {
+            Assert.That((string) Db.GetDatabase().Execute("FT.DROP", "cars-index"), Is.EqualTo("OK"));
         }
     }
 }

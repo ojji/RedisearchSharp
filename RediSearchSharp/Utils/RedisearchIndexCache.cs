@@ -5,17 +5,17 @@ namespace RediSearchSharp.Utils
 {
     public static class RedisearchIndexCache
     {
-        private static ConcurrentDictionary<string, object> IndexNameCache =>
-            new ConcurrentDictionary<string, object>();
-        private static ConcurrentDictionary<string, object> LiteralCache =>
-            new ConcurrentDictionary<string, object>();
+        private static ConcurrentDictionary<string, RedisValue> IndexNameCache =>
+            new ConcurrentDictionary<string, RedisValue>();
+        private static ConcurrentDictionary<string, RedisValue> LiteralCache =>
+            new ConcurrentDictionary<string, RedisValue>();
 
-        public static object GetBoxedIndexName(string indexName)
+        public static RedisValue GetBoxedIndexName(string indexName)
         {
             return IndexNameCache.GetOrAdd(indexName, (RedisValue) indexName);
         }
 
-        public static object GetBoxedLiteral(string literal)
+        public static RedisValue GetBoxedLiteral(string literal)
         {
             return IndexNameCache.GetOrAdd(literal, (RedisValue)literal);
         }
