@@ -26,7 +26,7 @@ namespace RediSearchSharp
         }
 
         public bool AddDocument<TEntity>(TEntity entity, double score = 1.0d)
-            where TEntity : class, IRedisearchSerializable<TEntity>, new()
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
             var serializedDocument = _serializer.Serialize(entity, score);
@@ -43,7 +43,7 @@ namespace RediSearchSharp
         }
 
         public async Task<bool> AddDocumentAsync<TEntity>(TEntity entity, double score = 1.0d)
-            where TEntity : class, IRedisearchSerializable<TEntity>, new()
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
             var serializedDocument = _serializer.Serialize(entity, score);
@@ -61,9 +61,10 @@ namespace RediSearchSharp
             }
         }
 
-        private object[] BuildAddDocumentParameters<TEntity>(Document doc)
+        private object[] BuildAddDocumentParameters<TEntity>(Document doc) 
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
-            var schemaInfo = SchemaInfo.GetSchemaInfo<TEntity>();
+            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
 
             var parameters = new List<object>
             {
@@ -83,7 +84,7 @@ namespace RediSearchSharp
         }
 
         public SearchResult<TEntity> Search<TEntity>(Query<TEntity> query)
-            where TEntity : class, IRedisearchSerializable<TEntity>, new()
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
 
@@ -97,7 +98,7 @@ namespace RediSearchSharp
         }
 
         public async Task<SearchResult<TEntity>> SearchAsync<TEntity>(Query<TEntity> query)
-            where TEntity : class, IRedisearchSerializable<TEntity>, new()
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
 
@@ -112,8 +113,9 @@ namespace RediSearchSharp
         }
 
         private object[] BuildSearchDocumentParameters<TEntity>(Query<TEntity> query)
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
-            var schemaInfo = SchemaInfo.GetSchemaInfo<TEntity>();
+            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
             var parameters = new List<object>
             {
                 schemaInfo.IndexName

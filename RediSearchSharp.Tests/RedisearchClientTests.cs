@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using RediSearchSharp.Internal;
 using RediSearchSharp.Query;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
@@ -23,15 +25,13 @@ namespace RediSearchSharp.Tests
             public string Class { get; set; }
             public double Price { get; set; }
             public GeoPosition Location { get; set; }
-
-            public override Expression<Func<Car, string>> IdSelector => c => c.Id.ToString();
         }
 
         [TestFixture]
         public class AddDocument : AddDocumentFixture
         {
             [Test]
-            public void Should_Return_True_If_Successful()
+            public void Should_return_true_if_successful()
             {
                 var car = new Car
                 {
@@ -53,11 +53,10 @@ namespace RediSearchSharp.Tests
             public class UnexistingIndexObject : RedisearchSerializable<UnexistingIndexObject>
             {
                 public int Id { get; set; }
-                public override Expression<Func<UnexistingIndexObject, string>> IdSelector => o => o.Id.ToString();
             }
 
             [Test]
-            public void Should_Return_False_When_Index_Does_Not_Exist()
+            public void Should_return_false_when_index_does_not_exist()
             {
                 var unexistingIndexObject = new UnexistingIndexObject
                 {
@@ -69,7 +68,7 @@ namespace RediSearchSharp.Tests
             }
 
             [Test]
-            public void Should_Return_False_When_A_Document_Already_Exists_With_The_Same_Id()
+            public void Should_return_false_when_a_document_already_exists_with_the_same_id()
             {
                 var car1 = new Car
                 {
@@ -107,7 +106,7 @@ namespace RediSearchSharp.Tests
         public class AddDocumentAsync : AddDocumentFixture
         {
             [Test]
-            public async Task Should_Return_True_If_Successful()
+            public async Task Should_return_true_if_successful()
             {
                 var car = new Car
                 {
@@ -129,11 +128,10 @@ namespace RediSearchSharp.Tests
             public class UnexistingIndexObject : RedisearchSerializable<UnexistingIndexObject>
             {
                 public int Id { get; set; }
-                public override Expression<Func<UnexistingIndexObject, string>> IdSelector => o => o.Id.ToString();
             }
 
             [Test]
-            public async Task Should_Return_False_When_Index_Does_Not_Exist()
+            public async Task Should_return_false_when_index_does_not_exist()
             {
                 var unexistingIndexObject = new UnexistingIndexObject
                 {
@@ -145,7 +143,7 @@ namespace RediSearchSharp.Tests
             }
 
             [Test]
-            public async Task Should_Return_False_When_A_Document_Already_Exists_With_The_Same_Id()
+            public async Task Should_return_false_when_a_document_already_exists_with_the_same_id()
             {
                 var car1 = new Car
                 {
@@ -183,7 +181,7 @@ namespace RediSearchSharp.Tests
         public class Search : SearchFixture
         {
             [Test]
-            public void Search_Sample()
+            public void Search_sample()
             {
                 var query = new Query<Car>()
                     .Where(c => c.Make)
@@ -193,11 +191,36 @@ namespace RediSearchSharp.Tests
                 var cars = Client.Search(query);
                 Assert.That(cars.Results, Has.One.Items);
             }
+
+            [Test]
+            public void Search_should_not_set_values_for_ignored_properties()
+            {
+                var query = new Query<SearchFixture.IgnoredPropertyTest>()
+                        .Where(t => t.Property1)
+                        .MustMatch("property1")
+                    .Build();
+                var results = Client.Search(query);
+                Assert.That(results.Results, Has.One.Items);
+                Assert.That(results.Results.First().IgnoredProperty, Is.Null);
+            }
         }
     }
 
     public class SearchFixture
     {
+        public class IgnoredPropertyTest : RedisearchSerializable<IgnoredPropertyTest>
+        {
+            public string Id { get; set; }
+            public string Property1 { get; set; }
+            public string IgnoredProperty { get; set; }
+            public string Property2 { get; set; }
+            
+            protected override void OnCreatingSchemaInfo(SchemaInfoBuilder<IgnoredPropertyTest> builder)
+            {
+                builder.Property(t => t.IgnoredProperty).Ignore();
+            }
+        }
+
         protected RediSearchClient Client { get; private set; }
         private IConnectionMultiplexer Connection { get; set; }
 
@@ -211,6 +234,13 @@ namespace RediSearchSharp.Tests
             {
                 Assert.That(Client.AddDocument(car), Is.True);
             }
+            Assert.That(Client.AddDocument(new IgnoredPropertyTest()
+            {
+                Id = "id1",
+                IgnoredProperty = "ignored",
+                Property1 = "property1",
+                Property2 = "property2"
+            }));
         }
 
         [OneTimeTearDown]
@@ -227,12 +257,19 @@ namespace RediSearchSharp.Tests
                     "TEXT", "NOSTEM", "Model", "TEXT", "NOSTEM", "Year", "NUMERIC", "SORTABLE", "Country", "TEXT",
                     "NOSTEM", "Engine", "TEXT", "NOSTEM", "Class", "TEXT", "NOSTEM", "Price", "NUMERIC", "SORTABLE",
                     "Location", "GEO"), Is.EqualTo("OK"));
+
+            Assert.That(
+                (string)Connection.GetDatabase().Execute("FT.CREATE", "ignoredpropertytests-index", "SCHEMA", "Id", "TEXT", "NOSTEM", "Property1",
+                    "TEXT", "NOSTEM", "Property2", "TEXT", "NOSTEM"), Is.EqualTo("OK"));
         }
 
         private void DropIndex()
         {
             Assert.That(
                 (string) Connection.GetDatabase().Execute("FT.DROP", "cars-index"), Is.EqualTo("OK"));
+
+            Assert.That(
+                (string)Connection.GetDatabase().Execute("FT.DROP", "ignoredpropertytests-index"), Is.EqualTo("OK"));
         }
         
         private static List<RedisearchClientTests.Car> CarsDb => new List<RedisearchClientTests.Car>

@@ -6,7 +6,7 @@ using StackExchange.Redis;
 namespace RediSearchSharp.Query
 {
     public class SearchResult<TEntity> 
-        where TEntity : class, IRedisearchSerializable<TEntity>, new()
+        where TEntity : RedisearchSerializable<TEntity>, new()
     {
         public IEnumerable<TEntity> Results { get; }
 

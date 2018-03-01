@@ -1,47 +1,39 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using RediSearchSharp.Serialization;
 using RediSearchSharp.Utils;
 using StackExchange.Redis;
 
 namespace RediSearchSharp.Internal
 {
-    public class SchemaInfo
+    public class SchemaInfo<TEntity>
+        where TEntity : RedisearchSerializable<TEntity>, new()
     {
-        public RedisValue IndexName { get; private set; }
-        public RedisValue DocumentIdPrefix { get; private set; }
+        public IEnumerable<string> PropertiesToSerialize { get; }
+        public RedisValue IndexName { get; }
+        public RedisValue DocumentIdPrefix { get; }
+        public Func<TEntity, RedisValue> PrimaryKeySelector { get; }
 
-        public static ConcurrentDictionary<Type, SchemaInfo> SchemaInfos = new ConcurrentDictionary<Type, SchemaInfo>();
+        private static readonly ConcurrentDictionary<Type, SchemaInfo<TEntity>> SchemaInfos = new ConcurrentDictionary<Type, SchemaInfo<TEntity>>();
 
-        public static SchemaInfo GetSchemaInfo<TEntity>()
+        internal SchemaInfo(string indexName, string documentIdPrefix, IEnumerable<string> propertiesToSerialize, Func<TEntity, RedisValue> primaryKeySelector)
         {
-            return SchemaInfos.GetOrAdd(
-                typeof(TEntity),
-                new SchemaInfo
+            IndexName = RedisearchIndexCache.GetBoxedIndexName(indexName);
+            DocumentIdPrefix = RedisearchIndexCache.GetBoxedLiteral(documentIdPrefix);
+            PropertiesToSerialize = propertiesToSerialize;
+            PrimaryKeySelector = primaryKeySelector;
+        }
+
+        public static SchemaInfo<TEntity> GetSchemaInfo()
+        {
+            return SchemaInfos.GetOrAdd(typeof(TEntity), t =>
                 {
-                    IndexName = GetIndexName<TEntity>(),
-                    DocumentIdPrefix = GetDocumentIdPrefix<TEntity>()
-                }
-            );
-        }
-
-        private static RedisValue GetIndexName<TEntity>()
-        {
-            return RedisearchIndexCache.GetBoxedIndexName($"{Pluralize(typeof(TEntity).Name)}-index");
-        }
-
-        private static RedisValue GetDocumentIdPrefix<TEntity>()
-        {
-            return RedisearchIndexCache.GetBoxedLiteral($"{Pluralize(typeof(TEntity).Name)}:");
-        }
-        
-        private static string Pluralize(string tableName)
-        {
-            if (!tableName.EndsWith("s"))
-            {
-                return string.Format($"{tableName.ToLowerInvariant()}s");
-            }
-
-            return tableName.ToLowerInvariant();
+                    var defaultEntity = new TEntity();
+                    var builder = new SchemaInfoBuilder<TEntity>();
+                    defaultEntity.OnCreatingSchemaInfo(builder);
+                    return builder.Build();
+                });
         }
     }
 }

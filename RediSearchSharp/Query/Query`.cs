@@ -5,11 +5,12 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using RediSearchSharp.Internal;
+using RediSearchSharp.Serialization;
 using RediSearchSharp.Utils;
 
 namespace RediSearchSharp.Query
 {
-    public interface IMatching<TEntity>
+    public interface IMatching<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
     {
         IMatchingContinuation<TEntity> MustMatch(Term term);
         IMatchingContinuation<TEntity> MustMatch(Term[] terms);
@@ -47,7 +48,7 @@ namespace RediSearchSharp.Query
         Descending
     }
 
-    public interface IQueryOptions<TEntity>
+    public interface IQueryOptions<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
     {   
         IQueryOptions<TEntity> InKeys(string[] keys);
         IQueryOptions<TEntity> WithSlop(int slop);
@@ -57,7 +58,7 @@ namespace RediSearchSharp.Query
         Query<TEntity> Build(Action<TypedQueryOptions> optionsBuilder);
     }
 
-    public interface IMatchingContinuation<TEntity> : IMatching<TEntity>, IQueryOptions<TEntity>
+    public interface IMatchingContinuation<TEntity> : IMatching<TEntity>, IQueryOptions<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
     {
         IMatching<TEntity> And();
         IMatching<TEntity> And<TProperty>(params Expression<Func<TEntity, TProperty>>[] propertySelectors);
@@ -66,6 +67,7 @@ namespace RediSearchSharp.Query
     /// Represents a search query to execute and retrieve results from the redisearch engine.
     /// </summary>
     public class Query<TEntity> : IMatchingContinuation<TEntity>
+        where TEntity : RedisearchSerializable<TEntity>, new()
     {
         public TypedQueryOptions Options { get; }
 
@@ -129,29 +131,10 @@ namespace RediSearchSharp.Query
             var fieldKeyBuilder = new StringBuilder();
             foreach (var propertySelector in propertySelectors)
             {
-                fieldKeyBuilder.AppendFormat($"{GetMemberNameFrom(propertySelector)}|");
+                fieldKeyBuilder.AppendFormat($"{propertySelector.GetMemberName()}|");
             }
 
             return fieldKeyBuilder.ToString(0, fieldKeyBuilder.Length - 1);
-        }
-
-        private string GetMemberNameFrom<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector)
-        {
-            if (!(propertySelector.Body is MemberExpression memberExpression))
-            {
-                throw new ArgumentException("Property selector is not a member expression");
-            }
-
-            var memberInfo = memberExpression.Member;
-
-#if NETSTANDARD2_0 || NET45 || NET46
-                if (memberInfo.ReflectedType != typeof(TEntity) &&
-                    !typeof(TEntity).IsAssignableFrom(memberInfo.ReflectedType))
-                {
-                    throw new ArgumentException("Property selector does not refer to a property of the entity.");
-                }
-#endif
-            return memberInfo.Name;
         }
 
         IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(string term)
@@ -318,7 +301,7 @@ namespace RediSearchSharp.Query
 
         IQueryOptions<TEntity> IQueryOptions<TEntity>.SortBy<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector, SortingOrder order)
         {   
-            _sortingBy = GetMemberNameFrom(propertySelector);
+            _sortingBy = propertySelector.GetMemberName();
             _sortingOrder = order;
             return this;
         }
@@ -373,9 +356,9 @@ namespace RediSearchSharp.Query
             {
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("INKEYS"));
                 args.Add(_limitKeys.Length);
-                var schemaInfo = SchemaInfo.GetSchemaInfo<TEntity>();
+                var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
 
-                foreach (var key in _limitKeys.Select(id => string.Join(schemaInfo.DocumentIdPrefix, id)))
+                foreach (var key in _limitKeys.Select(id => string.Concat(schemaInfo.DocumentIdPrefix, id)))
                 {
                     args.Add(key);
                 }
