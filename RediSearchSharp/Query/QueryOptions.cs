@@ -15,6 +15,7 @@
         public bool DisableStopwordFiltering { get; set; }
         public TermResolvingStrategies DefaultTermResolvingStrategy { get; set; }
         public bool InOrder { get; set; }
+        public string Language { get; set; }
         
         public static readonly QueryOptions DefaultOptions = new QueryOptions
         {
@@ -24,7 +25,8 @@
             WithPayloads = false,
             DisableStopwordFiltering = false,
             DefaultTermResolvingStrategy = TermResolvingStrategies.Exact,
-            InOrder = false
+            InOrder = false,
+            Language = null
         };
     }
 }

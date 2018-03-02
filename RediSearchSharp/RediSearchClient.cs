@@ -25,7 +25,7 @@ namespace RediSearchSharp
             _redisConnection = redisConnection ?? throw new ArgumentNullException(nameof(redisConnection));
         }
 
-        public bool AddDocument<TEntity>(TEntity entity, double score = 1.0d)
+        public bool AddDocument<TEntity>(TEntity entity, double score = 1.0d, string language = null)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
@@ -33,7 +33,7 @@ namespace RediSearchSharp
 
             try
             {
-                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument)) ==
+                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument, language)) ==
                        "OK";
             }
             catch (RedisServerException)
@@ -42,7 +42,7 @@ namespace RediSearchSharp
             }
         }
 
-        public async Task<bool> AddDocumentAsync<TEntity>(TEntity entity, double score = 1.0d)
+        public async Task<bool> AddDocumentAsync<TEntity>(TEntity entity, double score = 1.0d, string language = null)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
@@ -51,7 +51,7 @@ namespace RediSearchSharp
             try
             {
                 var response = (string) await database
-                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument))
+                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument, language))
                     .ConfigureAwait(false);
                 return response == "OK";
             }
@@ -61,16 +61,23 @@ namespace RediSearchSharp
             }
         }
 
-        private object[] BuildAddDocumentParameters<TEntity>(Document doc) 
+        private object[] BuildAddDocumentParameters<TEntity>(Document doc, string language) 
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
+
+            if (string.IsNullOrEmpty(language))
+            {
+                language = schemaInfo.Language;
+            }
 
             var parameters = new List<object>
             {
                 schemaInfo.IndexName,
                 doc.Id,
                 doc.Score,
+                RedisearchIndexCache.GetBoxedLiteral("LANGUAGE"),
+                RedisearchIndexCache.GetBoxedLiteral(language),
                 RedisearchIndexCache.GetBoxedLiteral("FIELDS")
             };
 

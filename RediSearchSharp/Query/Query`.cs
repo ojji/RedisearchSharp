@@ -377,7 +377,9 @@ namespace RediSearchSharp.Query
             }
 
             args.Add(RedisearchIndexCache.GetBoxedLiteral("LANGUAGE"));
-            args.Add(schemaInfo.Language);
+            args.Add(string.IsNullOrEmpty(Options.Language)
+                ? schemaInfo.Language
+                : RedisearchIndexCache.GetBoxedLiteral(Options.Language));
 
             if (_sortingBy != null)
             {
