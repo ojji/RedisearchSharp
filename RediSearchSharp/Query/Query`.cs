@@ -55,7 +55,7 @@ namespace RediSearchSharp.Query
         IQueryOptions<TEntity> SortBy<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector, SortingOrder order = SortingOrder.Ascending);
         IQueryOptions<TEntity> Limit(int offset, int count);
         Query<TEntity> Build();
-        Query<TEntity> Build(Action<TypedQueryOptions> optionsBuilder);
+        Query<TEntity> Build(Action<QueryOptions> optionsBuilder);
     }
 
     public interface IMatchingContinuation<TEntity> : IMatching<TEntity>, IQueryOptions<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
@@ -69,7 +69,7 @@ namespace RediSearchSharp.Query
     public class Query<TEntity> : IMatchingContinuation<TEntity>
         where TEntity : RedisearchSerializable<TEntity>, new()
     {
-        public TypedQueryOptions Options { get; }
+        public QueryOptions Options { get; }
 
         private string _currentFieldKey;
         private readonly StringBuilder _queryBuilder;
@@ -82,7 +82,7 @@ namespace RediSearchSharp.Query
 
         public Query()
         {
-            Options = TypedQueryOptions.DefaultOptions;
+            Options = QueryOptions.DefaultOptions;
             _filters = new Dictionary<string, List<Filter>>();
             _queryBuilder = new StringBuilder();
             _slop = -1;
@@ -317,7 +317,7 @@ namespace RediSearchSharp.Query
             return this;
         }
 
-        Query<TEntity> IQueryOptions<TEntity>.Build(Action<TypedQueryOptions> optionsBuilder)
+        Query<TEntity> IQueryOptions<TEntity>.Build(Action<QueryOptions> optionsBuilder)
         {
             optionsBuilder(Options);
             return this;
@@ -325,8 +325,10 @@ namespace RediSearchSharp.Query
         
         public void SerializeRedisArgs(List<object> args)
         {
+            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
+
             args.Add(BuildQueryString());
-            
+
             if (Options.Verbatim)
             {
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("VERBATIM"));
@@ -356,7 +358,6 @@ namespace RediSearchSharp.Query
             {
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("INKEYS"));
                 args.Add(_limitKeys.Length);
-                var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
 
                 foreach (var key in _limitKeys.Select(id => string.Concat(schemaInfo.DocumentIdPrefix, id)))
                 {
@@ -376,7 +377,7 @@ namespace RediSearchSharp.Query
             }
 
             args.Add(RedisearchIndexCache.GetBoxedLiteral("LANGUAGE"));
-            args.Add(Options.Language);
+            args.Add(schemaInfo.Language);
 
             if (_sortingBy != null)
             {
@@ -427,7 +428,7 @@ namespace RediSearchSharp.Query
                 FilterType = filterType;
             }
 
-            public abstract void SerializeQuery(StringBuilder queryBuilder, TypedQueryOptions typedQueryOptions);
+            public abstract void SerializeQuery(StringBuilder queryBuilder, QueryOptions queryOptions);
         }
 
         private class TextFilter : Filter
@@ -438,7 +439,7 @@ namespace RediSearchSharp.Query
                 Terms = terms;
             }
 
-            public override void SerializeQuery(StringBuilder queryBuilder, TypedQueryOptions typedQueryOptions)
+            public override void SerializeQuery(StringBuilder queryBuilder, QueryOptions queryOptions)
             {
                 queryBuilder.Append("(");
                 if (FilterType == FilterTypes.MustNot)
@@ -456,7 +457,7 @@ namespace RediSearchSharp.Query
                     queryBuilder.Append($"@{FieldName}:");
                 }
                 
-                queryBuilder.Append(string.Join("|", Terms.Select(t => t.GetValue(typedQueryOptions.DefaultTermResolvingStrategy))));
+                queryBuilder.Append(string.Join("|", Terms.Select(t => t.GetValue(queryOptions.DefaultTermResolvingStrategy))));
 
                 queryBuilder.Append(") ");
             }
@@ -505,7 +506,7 @@ namespace RediSearchSharp.Query
                 queryBuilder.Append("] | ");
             }
             
-            public override void SerializeQuery(StringBuilder queryBuilder, TypedQueryOptions typedQueryOptions)
+            public override void SerializeQuery(StringBuilder queryBuilder, QueryOptions queryOptions)
             {
                 queryBuilder.Append("(");
                 if (FilterType == FilterTypes.MustNot)
@@ -540,7 +541,7 @@ namespace RediSearchSharp.Query
                 Terms = terms;
             }
 
-            public override void SerializeQuery(StringBuilder queryBuilder, TypedQueryOptions typedQueryOptions)
+            public override void SerializeQuery(StringBuilder queryBuilder, QueryOptions queryOptions)
             {
                 queryBuilder.Append("(");
                 if (FilterType == FilterTypes.MustNot)

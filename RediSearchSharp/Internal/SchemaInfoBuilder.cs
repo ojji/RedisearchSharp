@@ -15,6 +15,7 @@ namespace RediSearchSharp.Internal
         private string _indexName;
         private string _documentIdPrefix;
         private readonly Dictionary<string, PropertyInfoBuilder> _propertyInfos;
+        private string _language;
         private PrimaryKeyBuilder _primaryKeyBuilder;
 
         public SchemaInfoBuilder()
@@ -66,6 +67,16 @@ namespace RediSearchSharp.Internal
             _documentIdPrefix = prefix;
         }
 
+        public void Language(string language)
+        {
+            if (string.IsNullOrWhiteSpace(language)) 
+            {
+                throw new ArgumentNullException(nameof(language));
+            }
+
+            _language = language;
+        }
+
         public PropertyInfoBuilder Property(Expression<Func<TEntity, object>> propertySelector)
         {
             var propertyName = propertySelector.GetMemberName();
@@ -81,13 +92,12 @@ namespace RediSearchSharp.Internal
         {
             var indexName = _indexName ?? _conventions.GetIndexName<TEntity>();
             var documentIdPrefix = _documentIdPrefix ?? _conventions.GetDocumentIdPrefix<TEntity>();
-
             var propertiesToSerialize = _propertyInfos.Where(pi => !pi.Value.IsIgnored)
                 .Select(pi => pi.Key);
-
             var primaryKey = _primaryKeyBuilder?.Build<TEntity>() ?? _conventions.GetPrimaryKey<TEntity>();
+            var language = _language ?? _conventions.GetDefaultLanguage();
 
-            return new SchemaInfo<TEntity>(indexName, documentIdPrefix, propertiesToSerialize, primaryKey);
+            return new SchemaInfo<TEntity>(indexName, documentIdPrefix, propertiesToSerialize, primaryKey, language);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using RediSearchSharp.Query;
 using StackExchange.Redis;
 
 namespace RediSearchSharp.Internal
@@ -35,6 +36,11 @@ namespace RediSearchSharp.Internal
             }
 
             return new PrimaryKeyBuilder(idProperty.Name, idProperty.PropertyType).Build<TEntity>();
+        }
+
+        public virtual string GetDefaultLanguage()
+        {
+            return Languages.Default;
         }
 
         private static string Pluralize(string tableName)

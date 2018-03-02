@@ -14,15 +14,17 @@ namespace RediSearchSharp.Internal
         public RedisValue IndexName { get; }
         public RedisValue DocumentIdPrefix { get; }
         public Func<TEntity, RedisValue> PrimaryKeySelector { get; }
+        public RedisValue Language { get; }
 
         private static readonly ConcurrentDictionary<Type, SchemaInfo<TEntity>> SchemaInfos = new ConcurrentDictionary<Type, SchemaInfo<TEntity>>();
 
-        internal SchemaInfo(string indexName, string documentIdPrefix, IEnumerable<string> propertiesToSerialize, Func<TEntity, RedisValue> primaryKeySelector)
+        internal SchemaInfo(string indexName, string documentIdPrefix, IEnumerable<string> propertiesToSerialize, Func<TEntity, RedisValue> primaryKeySelector, string language)
         {
             IndexName = RedisearchIndexCache.GetBoxedIndexName(indexName);
             DocumentIdPrefix = RedisearchIndexCache.GetBoxedLiteral(documentIdPrefix);
             PropertiesToSerialize = propertiesToSerialize;
             PrimaryKeySelector = primaryKeySelector;
+            Language = RedisearchIndexCache.GetBoxedLiteral(language);
         }
 
         public static SchemaInfo<TEntity> GetSchemaInfo()

@@ -1,6 +1,7 @@
 ﻿using System;
 using NUnit.Framework;
 using RediSearchSharp.Internal;
+using RediSearchSharp.Query;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
 
@@ -166,6 +167,35 @@ namespace RediSearchSharp.Tests
             {
                 Assert.Throws<ArgumentException>(() => 
                     SchemaInfo<ThrowingIdPropertyTest>.GetSchemaInfo());
+            }
+
+            class DefaultLanguageTest : RedisearchSerializable<DefaultLanguageTest>
+            {
+                public int Id { get; set; }
+            }
+
+            [Test]
+            public void Language_should_be_set_to_default_when_not_overridden()
+            {
+                var schemaInfo = SchemaInfo<DefaultLanguageTest>.GetSchemaInfo();
+                Assert.That(schemaInfo.Language, Is.EqualTo((RedisValue) "english"));
+            }
+
+            class OverriddenLanguageTest : RedisearchSerializable<OverriddenLanguageTest>
+            {
+                public int Id { get; set; }
+
+                protected override void OnCreatingSchemaInfo(SchemaInfoBuilder<OverriddenLanguageTest> builder)
+                {
+                    builder.Language(Languages.Hungarian);
+                }
+            }
+
+            [Test]
+            public void Language_should_be_overridable()
+            {
+                var schemaInfo = SchemaInfo<OverriddenLanguageTest>.GetSchemaInfo();
+                Assert.That(schemaInfo.Language, Is.EqualTo((RedisValue) "hungarian"));
             }
         }
     }
