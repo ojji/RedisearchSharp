@@ -8,23 +8,23 @@ using RediSearchSharp.Utils;
 
 namespace RediSearchSharp.Internal
 {
-    public class SchemaInfoBuilder<TEntity>
+    public class SchemaMetadataBuilder<TEntity>
         where TEntity: RedisearchSerializable<TEntity>, new()
     {
         private IRedisearchConventions _conventions;
         private string _indexName;
         private string _documentIdPrefix;
-        private readonly Dictionary<string, PropertyInfoBuilder> _propertyInfos;
+        private readonly Dictionary<string, PropertyMetadataBuilder> _propertyMetadataBuilders;
         private string _language;
-        private PrimaryKeyBuilder _primaryKeyBuilder;
+        private PrimaryKeySelectorBuilder _primaryKeySelectorBuilder;
 
-        public SchemaInfoBuilder()
+        public SchemaMetadataBuilder()
         {
             _conventions = RedisearchConventions.DefaultConventions;
-            _propertyInfos = new Dictionary<string, PropertyInfoBuilder>(GetAllProperties());
+            _propertyMetadataBuilders = new Dictionary<string, PropertyMetadataBuilder>(GetAllProperties());
         }
 
-        private IEnumerable<KeyValuePair<string, PropertyInfoBuilder>> GetAllProperties()
+        private IEnumerable<KeyValuePair<string, PropertyMetadataBuilder>> GetAllProperties()
         {
             var getSetProperties = typeof(TEntity).GetProperties(BindingFlags.DeclaredOnly |
                                                      BindingFlags.Public |
@@ -34,7 +34,7 @@ namespace RediSearchSharp.Internal
                                             .Where(p => p.GetSetMethod() != null);
 
             return getSetProperties.Select(p =>
-                new KeyValuePair<string, PropertyInfoBuilder>(p.Name, new PropertyInfoBuilder(p.Name)));
+                new KeyValuePair<string, PropertyMetadataBuilder>(p.Name, new PropertyMetadataBuilder(p.Name, p.PropertyType)));
         }
 
         public void SetConventions(IRedisearchConventions conventions)
@@ -54,7 +54,7 @@ namespace RediSearchSharp.Internal
 
         public void PrimaryKey<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector)
         {
-            _primaryKeyBuilder = new PrimaryKeyBuilder(propertySelector.GetMemberName(), typeof(TProperty));
+            _primaryKeySelectorBuilder = new PrimaryKeySelectorBuilder(propertySelector.GetMemberName(), typeof(TProperty));
         }
 
         public void DocumentIdPrefix(string prefix)
@@ -77,27 +77,26 @@ namespace RediSearchSharp.Internal
             _language = language;
         }
 
-        public PropertyInfoBuilder Property(Expression<Func<TEntity, object>> propertySelector)
+        public PropertyMetadataBuilder Property(Expression<Func<TEntity, object>> propertySelector)
         {
             var propertyName = propertySelector.GetMemberName();
-            if (!_propertyInfos.ContainsKey(propertyName))
+            if (!_propertyMetadataBuilders.ContainsKey(propertyName))
             {
                 throw new ArgumentException($"Property with name {propertyName} is not a valid property.");
             }
 
-            return _propertyInfos[propertyName];
+            return _propertyMetadataBuilders[propertyName];
         }
 
-        internal SchemaInfo<TEntity> Build()
+        internal SchemaMetadata<TEntity> Build()
         {
             var indexName = _indexName ?? _conventions.GetIndexName<TEntity>();
             var documentIdPrefix = _documentIdPrefix ?? _conventions.GetDocumentIdPrefix<TEntity>();
-            var propertiesToSerialize = _propertyInfos.Where(pi => !pi.Value.IsIgnored)
-                .Select(pi => pi.Key);
-            var primaryKey = _primaryKeyBuilder?.Build<TEntity>() ?? _conventions.GetPrimaryKey<TEntity>();
+            var propertyMetadata = _propertyMetadataBuilders.Select(pmb => pmb.Value.Build()).ToArray();
+            var primaryKey = _primaryKeySelectorBuilder?.Build<TEntity>() ?? _conventions.GetPrimaryKey<TEntity>();
             var language = _language ?? _conventions.GetDefaultLanguage();
 
-            return new SchemaInfo<TEntity>(indexName, documentIdPrefix, propertiesToSerialize, primaryKey, language);
+            return new SchemaMetadata<TEntity>(indexName, documentIdPrefix, propertyMetadata, primaryKey, language);
         }
     }
 }

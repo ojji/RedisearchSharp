@@ -214,7 +214,7 @@ namespace RediSearchSharp.Tests
             public string IgnoredProperty { get; set; }
             public string Property2 { get; set; }
             
-            protected override void OnCreatingSchemaInfo(SchemaInfoBuilder<IgnoredPropertyTest> builder)
+            protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<IgnoredPropertyTest> builder)
             {
                 builder.Property(t => t.IgnoredProperty).Ignore();
             }

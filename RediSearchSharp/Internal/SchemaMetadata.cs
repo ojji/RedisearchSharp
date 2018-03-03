@@ -1,38 +1,37 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using RediSearchSharp.Serialization;
 using RediSearchSharp.Utils;
 using StackExchange.Redis;
 
 namespace RediSearchSharp.Internal
 {
-    public class SchemaInfo<TEntity>
+    public class SchemaMetadata<TEntity>
         where TEntity : RedisearchSerializable<TEntity>, new()
     {
-        public IEnumerable<string> PropertiesToSerialize { get; }
+        public PropertyMetadata[] Properties { get; }
         public RedisValue IndexName { get; }
         public RedisValue DocumentIdPrefix { get; }
         public Func<TEntity, RedisValue> PrimaryKeySelector { get; }
         public RedisValue Language { get; }
 
-        private static readonly ConcurrentDictionary<Type, SchemaInfo<TEntity>> SchemaInfos = new ConcurrentDictionary<Type, SchemaInfo<TEntity>>();
+        private static readonly ConcurrentDictionary<Type, SchemaMetadata<TEntity>> SchemaInfos = new ConcurrentDictionary<Type, SchemaMetadata<TEntity>>();
 
-        internal SchemaInfo(string indexName, string documentIdPrefix, IEnumerable<string> propertiesToSerialize, Func<TEntity, RedisValue> primaryKeySelector, string language)
+        internal SchemaMetadata(string indexName, string documentIdPrefix, PropertyMetadata[] properties, Func<TEntity, RedisValue> primaryKeySelector, string language)
         {
             IndexName = RedisearchIndexCache.GetBoxedIndexName(indexName);
             DocumentIdPrefix = RedisearchIndexCache.GetBoxedLiteral(documentIdPrefix);
-            PropertiesToSerialize = propertiesToSerialize;
+            Properties = properties;
             PrimaryKeySelector = primaryKeySelector;
             Language = RedisearchIndexCache.GetBoxedLiteral(language);
         }
 
-        public static SchemaInfo<TEntity> GetSchemaInfo()
+        public static SchemaMetadata<TEntity> GetSchemaMetadata()
         {
             return SchemaInfos.GetOrAdd(typeof(TEntity), t =>
                 {
                     var defaultEntity = new TEntity();
-                    var builder = new SchemaInfoBuilder<TEntity>();
+                    var builder = new SchemaMetadataBuilder<TEntity>();
                     defaultEntity.OnCreatingSchemaInfo(builder);
                     return builder.Build();
                 });

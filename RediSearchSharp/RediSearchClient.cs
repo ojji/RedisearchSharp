@@ -64,16 +64,16 @@ namespace RediSearchSharp
         private object[] BuildAddDocumentParameters<TEntity>(Document doc, string language) 
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
-            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
 
             if (string.IsNullOrEmpty(language))
             {
-                language = schemaInfo.Language;
+                language = schemaMetadata.Language;
             }
 
             var parameters = new List<object>
             {
-                schemaInfo.IndexName,
+                schemaMetadata.IndexName,
                 doc.Id,
                 doc.Score,
                 RedisearchIndexCache.GetBoxedLiteral("LANGUAGE"),
@@ -122,10 +122,10 @@ namespace RediSearchSharp
         private object[] BuildSearchDocumentParameters<TEntity>(Query<TEntity> query)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
-            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
             var parameters = new List<object>
             {
-                schemaInfo.IndexName
+                schemaMetadata.IndexName
             };
 
             query.SerializeRedisArgs(parameters);

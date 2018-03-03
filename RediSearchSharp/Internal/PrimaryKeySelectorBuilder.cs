@@ -5,12 +5,12 @@ using StackExchange.Redis;
 
 namespace RediSearchSharp.Internal
 {
-    internal class PrimaryKeyBuilder
+    internal class PrimaryKeySelectorBuilder
     {
         private readonly string _propertyName;
         private readonly Type _propertyType;
 
-        internal PrimaryKeyBuilder(string propertyName, Type propertyType)
+        internal PrimaryKeySelectorBuilder(string propertyName, Type propertyType)
         {
             _propertyName = propertyName;
             _propertyType = propertyType;

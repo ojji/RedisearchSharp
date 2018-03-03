@@ -17,7 +17,7 @@ namespace RediSearchSharp.Serialization
             return RedisMapper.FromRedisValues<TEntity>(fields);
         }
 
-        protected internal virtual void OnCreatingSchemaInfo(SchemaInfoBuilder<TEntity> builder)
+        protected internal virtual void OnCreatingSchemaInfo(SchemaMetadataBuilder<TEntity> builder)
         {
         }
     }

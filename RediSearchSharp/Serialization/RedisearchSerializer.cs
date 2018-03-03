@@ -9,14 +9,14 @@ namespace RediSearchSharp.Serialization
         public Document Serialize<TEntity>(TEntity entity, double score) 
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
-            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
-            EnsureEntityMappingsAreRegistered<TEntity>(schemaInfo);
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            EnsureEntityMappingsAreRegistered<TEntity>(schemaMetadata);
 
-            var entityId = schemaInfo.PrimaryKeySelector(entity);
+            var entityId = schemaMetadata.PrimaryKeySelector(entity);
 
             return new Document
             {
-                Id = string.Concat(schemaInfo.DocumentIdPrefix, entityId),
+                Id = string.Concat(schemaMetadata.DocumentIdPrefix, entityId),
                 Fields = entity.SerializeToRedisearchFields(),
                 Score = score
             };
@@ -25,21 +25,21 @@ namespace RediSearchSharp.Serialization
         public TEntity Deserialize<TEntity>(Document document) 
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
-            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
-            EnsureEntityMappingsAreRegistered<TEntity>(schemaInfo);
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            EnsureEntityMappingsAreRegistered<TEntity>(schemaMetadata);
 
             var entity = new TEntity();
             return entity.DeserializeFromRedisFields(document.Fields);
         }
 
-        private void EnsureEntityMappingsAreRegistered<TEntity>(SchemaInfo<TEntity> schemaInfo)
+        private void EnsureEntityMappingsAreRegistered<TEntity>(SchemaMetadata<TEntity> schemaMetadata)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             if (!RedisMapper.IsRegisteredType<TEntity>())
             {
                 try
                 {
-                    RedisMapper.RegisterType<TEntity>(schemaInfo.PropertiesToSerialize.ToArray());
+                    RedisMapper.RegisterType<TEntity>(schemaMetadata.Properties.Where(p => !p.IsIgnored).Select(p => p.PropertyName).ToArray());
                 }
                 catch (Exception)
                 {

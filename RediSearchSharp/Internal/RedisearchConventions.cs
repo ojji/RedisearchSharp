@@ -35,7 +35,7 @@ namespace RediSearchSharp.Internal
                 throw new ArgumentException("Could not find a default id property, please specify one.");
             }
 
-            return new PrimaryKeyBuilder(idProperty.Name, idProperty.PropertyType).Build<TEntity>();
+            return new PrimaryKeySelectorBuilder(idProperty.Name, idProperty.PropertyType).Build<TEntity>();
         }
 
         public virtual string GetDefaultLanguage()

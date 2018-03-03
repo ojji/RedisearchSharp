@@ -325,7 +325,7 @@ namespace RediSearchSharp.Query
         
         public void SerializeRedisArgs(List<object> args)
         {
-            var schemaInfo = SchemaInfo<TEntity>.GetSchemaInfo();
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
 
             args.Add(BuildQueryString());
 
@@ -359,7 +359,7 @@ namespace RediSearchSharp.Query
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("INKEYS"));
                 args.Add(_limitKeys.Length);
 
-                foreach (var key in _limitKeys.Select(id => string.Concat(schemaInfo.DocumentIdPrefix, id)))
+                foreach (var key in _limitKeys.Select(id => string.Concat(schemaMetadata.DocumentIdPrefix, id)))
                 {
                     args.Add(key);
                 }
@@ -378,7 +378,7 @@ namespace RediSearchSharp.Query
 
             args.Add(RedisearchIndexCache.GetBoxedLiteral("LANGUAGE"));
             args.Add(string.IsNullOrEmpty(Options.Language)
-                ? schemaInfo.Language
+                ? schemaMetadata.Language
                 : RedisearchIndexCache.GetBoxedLiteral(Options.Language));
 
             if (_sortingBy != null)
