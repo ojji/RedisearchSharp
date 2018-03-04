@@ -8,9 +8,12 @@ namespace RediSearchSharp.Query
     public class SearchResult<TEntity> 
         where TEntity : RedisearchSerializable<TEntity>, new()
     {
-        public IEnumerable<TEntity> Results { get; }
+        public TEntity Entity { get; private set; }
+        public double? Score { get; private set; }
+        public byte[] Payload { get; private set; }
 
-        public SearchResult(IRedisearchSerializer serializer, RedisResult[] response, bool withScoresFlag, bool withPayloadsFlag)
+        public static IEnumerable<SearchResult<TEntity>> LoadResults(IRedisearchSerializer serializer, RedisResult[] response,
+            bool withScoresFlag, bool withPayloadsFlag)
         {
             int step = 2;
             int scoreOffset = 0;
@@ -29,9 +32,9 @@ namespace RediSearchSharp.Query
                 step += 1;
                 contentOffset += 1;
             }
-        
+
             // the first item is the total number of the response
-            var searchResults = new List<TEntity>((int)response[0]);
+            var results = new List<SearchResult<TEntity>>((int)response[0]);
 
             for (int i = 1; i < response.Length; i += step)
             {
@@ -48,10 +51,19 @@ namespace RediSearchSharp.Query
                 }
 
                 var fields = (RedisValue[])response[i + contentOffset];
-                
-                searchResults.Add(serializer.Deserialize<TEntity>(Document.Load(id, score, payload, fields)));
+                Document doc = Document.Load(id, score, payload, fields);
+
+                results.Add(new SearchResult<TEntity>(serializer.Deserialize<TEntity>(doc), doc.Score, doc.Payload));
             }
-            Results = searchResults;
+
+            return results;
+        }
+
+        public SearchResult(TEntity entity, double score, byte[] payload)
+        {
+            Entity = entity;
+            Score = score;
+            Payload = payload;
         }
     }
 }

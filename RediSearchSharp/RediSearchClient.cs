@@ -90,21 +90,21 @@ namespace RediSearchSharp
             return parameters.ToArray();
         }
 
-        public SearchResult<TEntity> Search<TEntity>(Query<TEntity> query)
+        public IEnumerable<SearchResult<TEntity>> Search<TEntity>(Query<TEntity> query)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
 
             var result = (RedisResult[]) database.Execute("FT.SEARCH", BuildSearchDocumentParameters(query));
 
-            return new SearchResult<TEntity>(
+            return SearchResult<TEntity>.LoadResults(
                 _serializer,
                 result,
                 query.Options.WithScores,
                 query.Options.WithPayloads);
         }
 
-        public async Task<SearchResult<TEntity>> SearchAsync<TEntity>(Query<TEntity> query)
+        public async Task<IEnumerable<SearchResult<TEntity>>> SearchAsync<TEntity>(Query<TEntity> query)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
@@ -112,7 +112,7 @@ namespace RediSearchSharp
             var result = (RedisResult[]) await database.ExecuteAsync("FT.SEARCH", BuildSearchDocumentParameters(query))
                 .ConfigureAwait(false);
 
-            return new SearchResult<TEntity>(
+            return SearchResult<TEntity>.LoadResults(
                 _serializer,
                 result,
                 query.Options.WithScores,

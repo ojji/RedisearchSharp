@@ -188,7 +188,7 @@ namespace RediSearchSharp.Tests
                     .Build();
 
                 var cars = Client.Search(query);
-                Assert.That(cars.Results, Has.One.Items);
+                Assert.That(cars, Has.One.Items);
             }
 
             [Test]
@@ -199,8 +199,8 @@ namespace RediSearchSharp.Tests
                         .MustMatch("property1")
                     .Build();
                 var results = Client.Search(query);
-                Assert.That(results.Results, Has.One.Items);
-                Assert.That(results.Results.First().IgnoredProperty, Is.Null);
+                Assert.That(results, Has.One.Items);
+                Assert.That(results.First().Entity.IgnoredProperty, Is.Null);
             }
         }
     }
