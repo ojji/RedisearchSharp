@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using FastMember;
+using RediSearchSharp.Utils;
 using StackExchange.Redis;
 
 namespace RediSearchSharp.Serialization
@@ -14,40 +15,56 @@ namespace RediSearchSharp.Serialization
         public static readonly Dictionary<Type, Dictionary<string, Type>> TypesWithRegisteredProperties = new Dictionary<Type, Dictionary<string, Type>>();
         private static readonly Dictionary<Type, Func<object, RedisValue>> ToRedisValueConverters = new Dictionary<Type, Func<object, RedisValue>>
         {
-            { typeof(int), o => (int)o },
+            { typeof(bool), o => (bool)o },
+            { typeof(byte), o => (byte)o},
+            { typeof(sbyte), o => (sbyte)o},
+            { typeof(short), o => (short)o},
+            { typeof(ushort), o => (ushort)o},
+            { typeof(int), o => (int)o},
+            { typeof(uint), o => (uint)o},
+            { typeof(long), o => (long)o},
+            { typeof(ulong), o => ((ulong)o).ToString(CultureInfo.InvariantCulture)},
             { typeof(float), o => (float)o },
             { typeof(double), o => (double)o },
-            { typeof(bool), o => (bool)o },
-            { typeof(string), o => (string)o },
-            { typeof(long), o => (long)o },
-            { typeof(byte[]), o => (byte[])o },
+            { typeof(decimal), o => ((ulong)o).ToString(CultureInfo.InvariantCulture)},
             { typeof(DateTime), o => ((DateTime)o).ToString("O") },
-            { typeof(Guid), o => o.ToString() },
+            { typeof(char), o => (string)o},
+            { typeof(string), o => (string)o },
             { typeof(GeoPosition), o =>
                     string.Join(',',
                         ((GeoPosition)o).Longitude.ToString("G17", CultureInfo.InvariantCulture),
                         ((GeoPosition)o).Latitude.ToString("G17", CultureInfo.InvariantCulture))
-            }
+            },
+            { typeof(byte[]), o => (byte[])o },
+            { typeof(Guid), o => o.ToString() }
         };
         private static readonly Dictionary<Type, Func<RedisValue, object>> FromRedisValueConverters = new Dictionary<Type, Func<RedisValue, object>>
         {
-            { typeof(int), o => (int)o },
+            { typeof(bool), o => (bool)o },
+            { typeof(byte), o => (byte)o},
+            { typeof(sbyte), o => (sbyte)o},
+            { typeof(short), o => (short)o},
+            { typeof(ushort), o => (ushort)o},
+            { typeof(int), o => (int)o},
+            { typeof(uint), o => (uint)o},
+            { typeof(long), o => (long)o},
+            { typeof(ulong), o => ulong.Parse(o, CultureInfo.InvariantCulture)},
             { typeof(float), o => (float)o },
             { typeof(double), o => (double)o },
-            { typeof(bool), o => (bool)o },
-            { typeof(string), o => (string)o },
-            { typeof(long), o => (long)o },
-            { typeof(byte[]), o => (byte[])o },
+            { typeof(decimal), o => decimal.Parse(o, CultureInfo.InvariantCulture)},
             { typeof(DateTime), o => DateTime.Parse(o) },
-            { typeof(Guid), o => new Guid(o.ToString()) },
+            { typeof(char), o => (char)o},
+            { typeof(string), o => (string)o },
             { typeof(GeoPosition), o =>
                 {
                     var split = o.ToString().Split(',');
                     return new GeoPosition(
-                        double.Parse(split[0], CultureInfo.InvariantCulture), 
+                        double.Parse(split[0], CultureInfo.InvariantCulture),
                         double.Parse(split[1], CultureInfo.InvariantCulture));
                 }
-            }
+            },
+            { typeof(byte[]), o => (byte[])o },
+            { typeof(Guid), o => new Guid(o.ToString()) }
         };
 
         public static void UnregisterAll()

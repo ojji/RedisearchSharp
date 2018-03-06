@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using NUnit.Framework;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
@@ -8,16 +9,24 @@ namespace RediSearchSharp.Tests
 {
     public class TestType1
     {
-        public int IntegerProperty { get; set; }
+        public bool BoolProperty { get; set; }
+        public byte ByteProperty { get; set; }
+        public sbyte SByteProperty { get; set; }
+        public short ShortProperty { get; set; }
+        public ushort UShortProperty { get; set; }
+        public int IntProperty { get; set; }
+        public uint UIntProperty { get; set; }
         public long LongProperty { get; set; }
+        public ulong ULongProperty { get; set; }
         public float FloatProperty { get; set; }
         public double DoubleProperty { get; set; }
-        public bool BoolProperty { get; set; }
-        public string StringProperty { get; set; }
-        public byte[] ByteArrayProperty { get; set; }
+        public decimal DecimalProperty { get; set; }
         public DateTime DateTimeProperty { get; set; }
-        public Guid GuidProperty { get; set; }
+        public char CharProperty { get; set; }
+        public string StringProperty { get; set; }
         public GeoPosition GeoPositionProperty { get; set; }
+        public byte[] ByteArrayProperty { get; set; }
+        public Guid GuidProperty { get; set; }
     }
 
     public class UnsupportedPropertyTestType1
@@ -65,7 +74,7 @@ namespace RediSearchSharp.Tests
         public void RegisterType_should_register_public_get_set_properties()
         {
             RedisMapper.RegisterType<TestType1>();
-            Assert.That(RedisMapper.TypesWithRegisteredProperties[typeof(TestType1)], Has.Exactly(10).Items);
+            Assert.That(RedisMapper.TypesWithRegisteredProperties[typeof(TestType1)], Has.Exactly(18).Items);
         }
 
         [Test]
@@ -224,31 +233,48 @@ namespace RediSearchSharp.Tests
 
             var subject = new Dictionary<string, RedisValue>
             {
-                {"IntegerProperty", 1},
+                {"BoolProperty", true},
+                {"ByteProperty", (byte)255},
+                {"SByteProperty", (sbyte)-128},
+                {"ShortProperty", (short)-32768},
+                {"UShortProperty", (ushort)65535},
+                {"IntProperty", (int)-2147483648},
+                {"UIntProperty", (uint)4294967295},
+                {"LongProperty", (long)-9223372036854775808},
+                {"ULongProperty", ((ulong)18446744073709551615).ToString(CultureInfo.InvariantCulture)},
                 {"FloatProperty", 2.0f},
                 {"DoubleProperty", 3.0d},
-                {"BoolProperty", true},
-                {"StringProperty", "teszt"},
-                {"ByteArrayProperty", new byte[] {0, 1, 2}},
+                {"DecimalProperty", 1234.5678m.ToString(CultureInfo.InvariantCulture)},
                 {"DateTimeProperty", new DateTime(2000, 1, 1, 12, 0, 0).ToString("O")},
+                {"CharProperty", 'a'},
+                {"StringProperty", "teszt"},
+                {"GeoPositionProperty", "12.123,45.456"},
+                {"ByteArrayProperty", new byte[] {0, 1, 2}},
                 {"GuidProperty", Guid.Empty.ToString()},
-                {"GeoPositionProperty", "12.123,45.456"}
             };
 
             var result = RedisMapper.FromRedisValues<TestType1>(subject);
 
-            Assert.That(result.IntegerProperty, Is.EqualTo(1));
+            Assert.That(result.BoolProperty, Is.True);
+            Assert.That(result.ByteProperty, Is.EqualTo(255));
+            Assert.That(result.SByteProperty, Is.EqualTo(-128));
+            Assert.That(result.ShortProperty, Is.EqualTo(-32768));
+            Assert.That(result.UShortProperty, Is.EqualTo(65535));
+            Assert.That(result.IntProperty, Is.EqualTo(-2147483648));
+            Assert.That(result.UIntProperty, Is.EqualTo(4294967295));
+            Assert.That(result.LongProperty, Is.EqualTo(-9223372036854775808));
+            Assert.That(result.ULongProperty, Is.EqualTo(18446744073709551615));
             Assert.That(result.FloatProperty, Is.EqualTo(2.0f));
             Assert.That(result.DoubleProperty, Is.EqualTo(3.0d));
-            Assert.That(result.BoolProperty, Is.True);
+            Assert.That(result.DecimalProperty, Is.EqualTo(1234.5678m));
+            Assert.That(result.DateTimeProperty, Is.EqualTo(new DateTime(2000, 1, 1, 12, 0, 0)));
+            Assert.That(result.CharProperty, Is.EqualTo('a'));
             Assert.That(result.StringProperty, Is.EqualTo("teszt"));
-            Assert.That(result.ByteArrayProperty, Has.Exactly(3).Items);
+            Assert.That(result.GeoPositionProperty, Is.EqualTo(new GeoPosition(12.123, 45.456)));
             Assert.That(
                 result.ByteArrayProperty,
-                Is.EquivalentTo(new[] {0, 1, 2}));
-            Assert.That(result.DateTimeProperty, Is.EqualTo(new DateTime(2000, 1, 1, 12, 0, 0)));
+                Is.EquivalentTo(new[] { 0, 1, 2 }));
             Assert.That(result.GuidProperty, Is.EqualTo(Guid.Empty));
-            Assert.That(result.GeoPositionProperty, Is.EqualTo(new GeoPosition(12.123, 45.456)));
         }
 
         [Test]
