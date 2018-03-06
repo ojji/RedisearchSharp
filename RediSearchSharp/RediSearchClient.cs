@@ -29,11 +29,10 @@ namespace RediSearchSharp
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
-            var serializedDocument = _serializer.Serialize(entity, score);
 
             try
             {
-                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument, language)) ==
+                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters<TEntity>(entity, score, language)) ==
                        "OK";
             }
             catch (RedisServerException)
@@ -46,12 +45,10 @@ namespace RediSearchSharp
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
-            var serializedDocument = _serializer.Serialize(entity, score);
-
             try
             {
                 var response = (string) await database
-                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters<TEntity>(serializedDocument, language))
+                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters<TEntity>(entity, score, language))
                     .ConfigureAwait(false);
                 return response == "OK";
             }
@@ -61,10 +58,13 @@ namespace RediSearchSharp
             }
         }
 
-        private object[] BuildAddDocumentParameters<TEntity>(Document doc, string language) 
+        private object[] BuildAddDocumentParameters<TEntity>(TEntity entity, double score, string language) 
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+
+            var indexName = schemaMetadata.IndexName;
+            var entityId = string.Concat(schemaMetadata.DocumentIdPrefix, schemaMetadata.PrimaryKeySelector(entity));
 
             if (string.IsNullOrEmpty(language))
             {
@@ -73,15 +73,15 @@ namespace RediSearchSharp
 
             var parameters = new List<object>
             {
-                schemaMetadata.IndexName,
-                doc.Id,
-                doc.Score,
+                indexName,
+                entityId,
+                score,
                 RedisearchIndexCache.GetBoxedLiteral("LANGUAGE"),
                 RedisearchIndexCache.GetBoxedLiteral(language),
                 RedisearchIndexCache.GetBoxedLiteral("FIELDS")
             };
 
-            foreach (var fieldPairs in doc.Fields)
+            foreach (var fieldPairs in _serializer.Serialize(entity))
             {
                 parameters.Add(fieldPairs.Key);
                 parameters.Add(fieldPairs.Value);

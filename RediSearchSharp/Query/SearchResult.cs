@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using RediSearchSharp.Internal;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
 
@@ -8,11 +7,11 @@ namespace RediSearchSharp.Query
     public class SearchResult<TEntity> 
         where TEntity : RedisearchSerializable<TEntity>, new()
     {
-        public TEntity Entity { get; private set; }
-        public double? Score { get; private set; }
-        public byte[] Payload { get; private set; }
+        public TEntity Entity { get; }
+        public double? Score { get; }
+        public byte[] Payload { get; }
 
-        public static IEnumerable<SearchResult<TEntity>> LoadResults(IRedisearchSerializer serializer, RedisResult[] response,
+        internal static IEnumerable<SearchResult<TEntity>> LoadResults(IRedisearchSerializer serializer, RedisResult[] response,
             bool withScoresFlag, bool withPayloadsFlag)
         {
             int step = 2;
@@ -50,20 +49,35 @@ namespace RediSearchSharp.Query
                     payload = (byte[])response[i + payloadOffset];
                 }
 
-                var fields = (RedisValue[])response[i + contentOffset];
-                Document doc = Document.Load(id, score, payload, fields);
-
-                results.Add(new SearchResult<TEntity>(serializer.Deserialize<TEntity>(doc), doc.Score, doc.Payload));
+                var fieldsArray = (RedisValue[])response[i + contentOffset];
+                var entity = serializer.Deserialize<TEntity>(InitializeFieldsFrom(fieldsArray));
+                
+                results.Add(new SearchResult<TEntity>(
+                    entity,
+                    withScoresFlag ? (double?)score : null,
+                    withPayloadsFlag ? payload : null));
             }
 
             return results;
         }
 
-        public SearchResult(TEntity entity, double score, byte[] payload)
+        private SearchResult(TEntity entity, double? score, byte[] payload)
         {
             Entity = entity;
             Score = score;
             Payload = payload;
+        }
+
+        private static Dictionary<string, RedisValue> InitializeFieldsFrom(RedisValue[] fields)
+        {
+            var fieldValues = new Dictionary<string, RedisValue>();
+            if (fields == null) return fieldValues;
+            for (int i = 0; i < fields.Length; i += 2)
+            {
+                fieldValues.Add(fields[i], fields[i + 1]);
+            }
+
+            return fieldValues;
         }
     }
 }

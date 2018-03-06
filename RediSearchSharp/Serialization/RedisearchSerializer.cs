@@ -1,40 +1,30 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using RediSearchSharp.Internal;
+using StackExchange.Redis;
 
 namespace RediSearchSharp.Serialization
 {
     internal class RedisearchSerializer : IRedisearchSerializer
     {
-        public Document Serialize<TEntity>(TEntity entity, double score) 
+        public Dictionary<string, RedisValue> Serialize<TEntity>(TEntity entity) where TEntity : RedisearchSerializable<TEntity>, new()
+        {
+            EnsureEntityMappingsAreRegistered<TEntity>();
+            return RedisMapper.MapToRedisValues(entity);
+        }
+
+        public TEntity Deserialize<TEntity>(Dictionary<string, RedisValue> fields) where TEntity : RedisearchSerializable<TEntity>, new()
+        {
+            EnsureEntityMappingsAreRegistered<TEntity>();
+            return RedisMapper.FromRedisValues<TEntity>(fields);
+        }
+
+        private void EnsureEntityMappingsAreRegistered<TEntity>()
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
-            EnsureEntityMappingsAreRegistered<TEntity>(schemaMetadata);
 
-            var entityId = schemaMetadata.PrimaryKeySelector(entity);
-
-            return new Document
-            {
-                Id = string.Concat(schemaMetadata.DocumentIdPrefix, entityId),
-                Fields = entity.SerializeToRedisearchFields(),
-                Score = score
-            };
-        }
-
-        public TEntity Deserialize<TEntity>(Document document) 
-            where TEntity : RedisearchSerializable<TEntity>, new()
-        {
-            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
-            EnsureEntityMappingsAreRegistered<TEntity>(schemaMetadata);
-
-            var entity = new TEntity();
-            return entity.DeserializeFromRedisFields(document.Fields);
-        }
-
-        private void EnsureEntityMappingsAreRegistered<TEntity>(SchemaMetadata<TEntity> schemaMetadata)
-            where TEntity : RedisearchSerializable<TEntity>, new()
-        {
             if (!RedisMapper.IsRegisteredType<TEntity>())
             {
                 try
