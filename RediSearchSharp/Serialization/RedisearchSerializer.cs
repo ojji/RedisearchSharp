@@ -31,9 +31,9 @@ namespace RediSearchSharp.Serialization
                 {
                     RedisMapper.RegisterType<TEntity>(schemaMetadata.Properties.Where(p => !p.IsIgnored).Select(p => p.PropertyName).ToArray());
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    throw new ArgumentException($"Entity type cannot be serialized: {typeof(TEntity)}");
+                    throw new ArgumentException($"Entity type cannot be serialized: {typeof(TEntity)}", ex);
                 }
             }
         }
