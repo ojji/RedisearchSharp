@@ -1,50 +1,73 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using NUnit.Framework;
 using RediSearchSharp.Internal;
 using RediSearchSharp.Query;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
-// ReSharper disable UnusedAutoPropertyAccessor.Local
 
 namespace RediSearchSharp.Tests
 {
     [TestFixture]
     public class SchemaMetadataTests
     {
-        public class Car : RedisearchSerializable<Car>
-        {
-            public int Id { get; set; }
-            public string Model { get; set; }
-            public string Make { get; set; }
-
-            protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<Car> schemaMetadataBuilder)
-            {
-                schemaMetadataBuilder.IndexName("cars-indexname");
-            }
-        }
-
-        public class Boss : RedisearchSerializable<Boss>
-        {
-            public int Id { get; set; }
-            public string Name { get; set; }
-
-            protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<Boss> builder)
-            {
-                builder.PrimaryKey(b => b.Id);
-                builder.DocumentIdPrefix("boss-prefix");
-            }
-        }
-
         [TestFixture]
         public class GetSchemaInfo
         {
+            [SuppressMessage("ReSharper", "UnusedMember.Local")]
+            private class Car : RedisearchSerializable<Car>
+            {
+                public int Id { get; set; }
+                public string Model { get; set; }
+                public string Make { get; set; }
+
+                protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<Car> schemaMetadataBuilder)
+                {
+                    schemaMetadataBuilder.IndexName("cars-indexname");
+                }
+            }
+
+            [SuppressMessage("ReSharper", "UnusedMember.Local")]
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+            [SuppressMessage("ReSharper", "MemberCanBePrivate.Local")]
+            private class Boss : RedisearchSerializable<Boss>
+            {
+                public int Id { get; set; }
+                public string Name { get; set; }
+
+                protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<Boss> builder)
+                {
+                    builder.PrimaryKey(b => b.Id);
+                    builder.DocumentIdPrefix("boss-prefix");
+                }
+            }
+
             [Test]
             public void Should_return_set_index_name()
             {
                 var schemaMetadata = SchemaMetadata<Car>.GetSchemaMetadata();
                 Assert.That(schemaMetadata.IndexName, Is.EqualTo((RedisValue)"cars-indexname"));
+            }
+
+            [SuppressMessage("ReSharper", "UnusedMember.Local")]
+            private class InvalidIndexNameTest : RedisearchSerializable<InvalidIndexNameTest>
+            {
+                public int Id { get; set; }
+                protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<InvalidIndexNameTest> builder)
+                {
+                    builder.IndexName("");
+                }
+            }
+
+            [Test]
+            public void Invalid_index_name_should_throw()
+            {
+                Assert.Throws<ArgumentNullException>(() =>
+                {
+                    SchemaMetadata<InvalidIndexNameTest>.GetSchemaMetadata();
+                });
             }
 
             [Test]
@@ -69,7 +92,7 @@ namespace RediSearchSharp.Tests
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            class SerializedPropertiesTest : RedisearchSerializable<SerializedPropertiesTest>
+            private class SerializedPropertiesTest : RedisearchSerializable<SerializedPropertiesTest>
             {
                 public Guid Id { get; set; }
                 public string Property1 { get; set; }
@@ -86,7 +109,9 @@ namespace RediSearchSharp.Tests
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            class IgnoredPropertiesTest : RedisearchSerializable<IgnoredPropertiesTest>
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+            [SuppressMessage("ReSharper", "MemberCanBePrivate.Local")]
+            private class IgnoredPropertiesTest : RedisearchSerializable<IgnoredPropertiesTest>
             {
                 public Guid Id { get; set; }
                 public string Property1 { get; set; }
@@ -110,12 +135,14 @@ namespace RediSearchSharp.Tests
                     Is.EquivalentTo(new[] { "Id", "Property1", "Property2" }));
             }
 
-            class IdPropertiesTest1 : RedisearchSerializable<IdPropertiesTest1>
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+            private class IdPropertiesTest1 : RedisearchSerializable<IdPropertiesTest1>
             {
                 public Guid Id { get; set; }
             }
 
-            class IdPropertiesTest2 : RedisearchSerializable<IdPropertiesTest2>
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+            private class IdPropertiesTest2 : RedisearchSerializable<IdPropertiesTest2>
             {
                 public int IdPropertiesTest2Id { get; set; }
             }
@@ -123,7 +150,7 @@ namespace RediSearchSharp.Tests
             [Test]
             public void Default_id_should_be_recognizable_by_convention()
             {
-                var testObj1 = new IdPropertiesTest1()
+                var testObj1 = new IdPropertiesTest1
                 {
                     Id = Guid.Empty
                 };
@@ -142,7 +169,7 @@ namespace RediSearchSharp.Tests
                 Assert.That(schemaInfo2.PrimaryKeySelector(testObj2), Is.EqualTo((RedisValue)42));
             }
 
-            class OverriddenIdPropertyTest : RedisearchSerializable<OverriddenIdPropertyTest>
+            private class OverriddenIdPropertyTest : RedisearchSerializable<OverriddenIdPropertyTest>
             {
                 public DateTime InterestingId { get; set; }
 
@@ -162,11 +189,11 @@ namespace RediSearchSharp.Tests
 
                 var schemaMetadata = SchemaMetadata<OverriddenIdPropertyTest>.GetSchemaMetadata();
                 Assert.That(schemaMetadata.PrimaryKeySelector, Is.Not.Null);
-                Assert.That(schemaMetadata.PrimaryKeySelector(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString()));
+                Assert.That(schemaMetadata.PrimaryKeySelector(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString(CultureInfo.CurrentCulture)));
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            class ThrowingIdPropertyTest : RedisearchSerializable<ThrowingIdPropertyTest>
+            private class ThrowingIdPropertyTest : RedisearchSerializable<ThrowingIdPropertyTest>
             {
                 public DateTime InterestingId { get; set; }
             }
@@ -179,7 +206,7 @@ namespace RediSearchSharp.Tests
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            class DefaultLanguageTest : RedisearchSerializable<DefaultLanguageTest>
+            private class DefaultLanguageTest : RedisearchSerializable<DefaultLanguageTest>
             {
                 public int Id { get; set; }
             }
@@ -192,7 +219,7 @@ namespace RediSearchSharp.Tests
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            class OverriddenLanguageTest : RedisearchSerializable<OverriddenLanguageTest>
+            private class OverriddenLanguageTest : RedisearchSerializable<OverriddenLanguageTest>
             {
                 public int Id { get; set; }
 
@@ -210,7 +237,7 @@ namespace RediSearchSharp.Tests
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            class DefaultRedisearchPropertyTypeTest : RedisearchSerializable<DefaultRedisearchPropertyTypeTest>
+            private class DefaultRedisearchPropertyTypeTest : RedisearchSerializable<DefaultRedisearchPropertyTypeTest>
             {
                 public int Id { get; set; }
 
