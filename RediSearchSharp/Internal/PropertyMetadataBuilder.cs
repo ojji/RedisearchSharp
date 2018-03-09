@@ -16,6 +16,7 @@ namespace RediSearchSharp.Internal
         private readonly Type _clrType;
         private RedisearchPropertyType _redisearchType;
         private bool _noStem;
+        private double? _weight;
 
         internal PropertyMetadataBuilder(string propertyName, Type clrType)
         {
@@ -53,7 +54,7 @@ namespace RediSearchSharp.Internal
         /// <summary>
         /// Sets the property to be sortable.
         /// </summary>
-        public void Sortable()
+        public void AsSortable()
         {
             _sortable = true;
         }
@@ -65,23 +66,51 @@ namespace RediSearchSharp.Internal
         {
             _noStem = true;
         }
+        
+        /// <summary>
+        /// Sets the property weight on a text property. This value is used by the
+        /// indexing engine's scoring function. When it is not set, the default value
+        /// of 1.0d will be used.
+        /// </summary>
+        /// <param name="weight">The property weight.</param>
+        public void WithWeight(double weight)
+        {
+            if (weight <= 0.0d)
+            {
+                throw new ArgumentException("Weight must be positive.");
+            }
+            _weight = weight;
+        }
 
         internal PropertyMetadata Build()
         {
             EnsurePropertyMetadataIsValid();
-            return new PropertyMetadata(_propertyName, _clrType, _ignored, _redisearchType, _notIndexed, _sortable, _noStem);
+            return new PropertyMetadata(
+                _propertyName, 
+                _clrType, 
+                _ignored, 
+                _redisearchType,
+                _notIndexed, 
+                _sortable, 
+                _noStem, 
+                _weight ?? 1.0d);
         }
 
         private void EnsurePropertyMetadataIsValid()
         {
             if (_redisearchType == RedisearchPropertyType.Geo && _sortable)
             {
-                throw new ArgumentException("You cannot set sortable on a geo property");
+                throw new ArgumentException("You cannot set sortable on a geo property.");
             }
 
             if (_redisearchType != RedisearchPropertyType.Fulltext && _noStem)
             {
-                throw new ArgumentException("You can disable stemming only on a fulltext property");
+                throw new ArgumentException("You can disable stemming only on a fulltext property.");
+            }
+
+            if (_redisearchType != RedisearchPropertyType.Fulltext && _weight.HasValue)
+            {
+                throw new ArgumentException("You can only set weight on fulltext properties.");
             }
         }
 

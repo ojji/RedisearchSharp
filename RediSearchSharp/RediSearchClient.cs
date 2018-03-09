@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using RediSearchSharp.Internal;
 using RediSearchSharp.Query;
@@ -32,7 +33,7 @@ namespace RediSearchSharp
 
             try
             {
-                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters<TEntity>(entity, score, language)) ==
+                return (string) database.Execute("FT.ADD", BuildAddDocumentParameters(entity, score, language)) ==
                        "OK";
             }
             catch (RedisServerException)
@@ -48,7 +49,7 @@ namespace RediSearchSharp
             try
             {
                 var response = (string) await database
-                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters<TEntity>(entity, score, language))
+                    .ExecuteAsync("FT.ADD", BuildAddDocumentParameters(entity, score, language))
                     .ConfigureAwait(false);
                 return response == "OK";
             }
@@ -58,7 +59,7 @@ namespace RediSearchSharp
             }
         }
 
-        private object[] BuildAddDocumentParameters<TEntity>(TEntity entity, double score, string language) 
+        private object[] BuildAddDocumentParameters<TEntity>(TEntity entity, double score, string language)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
@@ -130,6 +131,94 @@ namespace RediSearchSharp
 
             query.SerializeRedisArgs(parameters);
             return parameters.ToArray();
+        }
+
+        public bool CreateIndex<TEntity>()
+            where TEntity : RedisearchSerializable<TEntity>, new()
+        {
+            var database = _redisConnection.GetDatabase();
+
+            try
+            {
+                return (string) database.Execute("FT.CREATE", BuildCreateParameters<TEntity>()) == "OK";
+            }
+            catch (RedisServerException)
+            {
+                return false;
+            }
+        }
+
+        public async Task<bool> CreateIndexAsync<TEntity>()
+            where TEntity : RedisearchSerializable<TEntity>, new()
+        {
+            var database = _redisConnection.GetDatabase();
+
+            try
+            {
+                return (string) await database.ExecuteAsync("FT.CREATE", BuildCreateParameters<TEntity>())
+                           .ConfigureAwait(false) == "OK";
+            }
+            catch (RedisServerException)
+            {
+                return false;
+            }
+        }
+
+        private object[] BuildCreateParameters<TEntity>()
+            where TEntity : RedisearchSerializable<TEntity>, new()
+        {
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            
+            var parameters = new List<object>
+            {
+                RedisearchIndexCache.GetBoxedIndexName(schemaMetadata.IndexName),
+                RedisearchIndexCache.GetBoxedLiteral("SCHEMA")
+            };
+
+            foreach (var propertyMetadata in schemaMetadata.Properties.Where(pm => !pm.IsIgnored))
+            {
+                AddPropertyParametersTo(parameters, propertyMetadata);
+            }
+
+            return parameters.ToArray();
+        }
+
+        private void AddPropertyParametersTo(List<object> parameters, PropertyMetadata propertyMetadata)
+        {
+            parameters.Add(propertyMetadata.PropertyName);
+            switch (propertyMetadata.RedisearchType)
+            {
+                case RedisearchPropertyType.Fulltext:
+                    parameters.Add(RedisearchIndexCache.GetBoxedLiteral("TEXT"));
+                    if (propertyMetadata.NoStem)
+                    {
+                        parameters.Add(RedisearchIndexCache.GetBoxedLiteral("NOSTEM"));
+                    }
+                    parameters.Add(RedisearchIndexCache.GetBoxedLiteral("WEIGHT"));
+                    parameters.Add((RedisValue) propertyMetadata.Weight);
+                    if (propertyMetadata.Sortable)
+                    {
+                        parameters.Add(RedisearchIndexCache.GetBoxedLiteral("SORTABLE"));
+                    }
+                    break;
+                case RedisearchPropertyType.Numeric:
+                    parameters.Add(RedisearchIndexCache.GetBoxedLiteral("NUMERIC"));
+                    if (propertyMetadata.Sortable)
+                    {
+                        parameters.Add(RedisearchIndexCache.GetBoxedLiteral("SORTABLE"));
+                    }
+                    break;
+                case RedisearchPropertyType.Geo:
+                    parameters.Add(RedisearchIndexCache.GetBoxedLiteral("GEO"));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            if (propertyMetadata.NotIndexed)
+            {
+                parameters.Add(RedisearchIndexCache.GetBoxedLiteral("NOINDEX"));
+            }
         }
     }
 }

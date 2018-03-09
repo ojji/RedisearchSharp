@@ -98,7 +98,7 @@ namespace RediSearchSharp.Internal
         /// </summary>
         /// <param name="propertySelector">The property selector.</param>
         /// <returns>An object to configure the property.</returns>
-        public PropertyMetadataBuilder Property(Expression<Func<TEntity, object>> propertySelector)
+        public PropertyMetadataBuilder Property<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector)
         {
             var propertyName = propertySelector.GetMemberName();
             if (!_propertyMetadataBuilders.ContainsKey(propertyName))

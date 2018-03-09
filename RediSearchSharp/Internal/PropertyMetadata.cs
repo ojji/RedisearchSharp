@@ -11,9 +11,10 @@ namespace RediSearchSharp.Internal
         public bool NotIndexed { get; }
         public bool Sortable { get; }
         public bool NoStem { get; }
+        public double Weight { get; }
 
         internal PropertyMetadata(string propertyName, Type clrType, bool isIgnored,
-            RedisearchPropertyType redisearchType, bool notIndexed, bool sortable, bool noStem)
+            RedisearchPropertyType redisearchType, bool notIndexed, bool sortable, bool noStem, double weight)
         {
             PropertyName = propertyName;
             ClrType = clrType;
@@ -22,6 +23,7 @@ namespace RediSearchSharp.Internal
             NotIndexed = notIndexed;
             Sortable = sortable;
             NoStem = noStem;
+            Weight = weight;
         }
     }
 }
