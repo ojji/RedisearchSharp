@@ -117,13 +117,27 @@ namespace RediSearchSharp.Tests
         }
 
         [Test]
-        public void ToRedis_should_be_able_to_handle_an_empty_collection_of_strings()
+        public void ToRedis_should_be_able_to_handle_an_empty_array_of_strings()
         {
             RedisMapper.RegisterType<CollectionOfStringsTestType1>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfStringsTestType1)],
                 Has.One.Items);
 
+            var subject = new CollectionOfStringsTestType1
+            {
+                StringCollection = new string[0]
+            };
+
+            var result = RedisMapper.MapToRedisValues(subject);
+            Assert.That(
+                result["StringCollection"],
+                Is.EqualTo((RedisValue)typeof(string[]).AssemblyQualifiedName));
+        }
+
+        [Test]
+        public void ToRedis_should_be_able_to_handle_an_empty_list_of_strings()
+        {
             RedisMapper.RegisterType<CollectionOfStringsTestType2>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfStringsTestType2)],
@@ -137,17 +151,30 @@ namespace RediSearchSharp.Tests
             var result = RedisMapper.MapToRedisValues(subject);
             Assert.That(
                 result["StringCollection"],
-                Is.EqualTo((RedisValue) typeof(List<string>).AssemblyQualifiedName));
+                Is.EqualTo((RedisValue)typeof(List<string>).AssemblyQualifiedName));
         }
 
         [Test]
-        public void ToRedis_should_be_able_to_handle_an_empty_collection_of_Guids()
+        public void ToRedis_should_be_able_to_handle_an_empty_array_of_Guids()
         {
             RedisMapper.RegisterType<CollectionOfGuidTestType1>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfGuidTestType1)],
                 Has.One.Items);
 
+            var subject = new CollectionOfGuidTestType1
+            {
+                GuidCollection = new Guid[0]
+            };
+
+            var result = RedisMapper.MapToRedisValues(subject);
+            Assert.That(result["GuidCollection"],
+                Is.EqualTo((RedisValue)typeof(Guid[]).AssemblyQualifiedName));
+        }
+
+        [Test]
+        public void ToRedis_should_be_able_to_handle_an_empty_list_of_Guids()
+        {
             RedisMapper.RegisterType<CollectionOfGuidTestType2>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfGuidTestType2)],
@@ -164,13 +191,35 @@ namespace RediSearchSharp.Tests
         }
 
         [Test]
-        public void ToRedis_should_be_able_to_handle_collection_of_strings()
+        public void ToRedis_should_be_able_to_handle_array_of_strings()
         {
             RedisMapper.RegisterType<CollectionOfStringsTestType1>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfStringsTestType1)],
                 Has.One.Items);
 
+            var subject = new CollectionOfStringsTestType1
+            {
+                StringCollection = new string[]
+                {
+                    "item1",
+                    "item2",
+                    "item3",
+                    @"|item4"
+                }
+            };
+
+            var result = RedisMapper.MapToRedisValues(subject);
+            Assert.That(
+                result["StringCollection"],
+                Is.EqualTo((RedisValue)$@"{
+                        typeof(string[]).AssemblyQualifiedName
+                    }||item1||item2||item3||\|item4"));
+        }
+
+        [Test]
+        public void ToRedis_should_be_able_to_handle_list_of_strings()
+        {
             RedisMapper.RegisterType<CollectionOfStringsTestType2>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfStringsTestType2)],
@@ -196,13 +245,34 @@ namespace RediSearchSharp.Tests
         }
 
         [Test]
-        public void ToRedis_should_be_able_to_handle_collection_of_Guids()
+        public void ToRedis_should_be_able_to_handle_array_of_Guids()
         {
             RedisMapper.RegisterType<CollectionOfGuidTestType1>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfGuidTestType1)],
                 Has.One.Items);
 
+            var subject = new CollectionOfGuidTestType1
+            {
+                GuidCollection = new Guid[]
+                {
+                    Guid.Empty,
+                    Guid.Parse("11c43ee8-b9d3-4e51-b73f-bd9dda66e29c")
+                }
+            };
+
+            var result = RedisMapper.MapToRedisValues(subject);
+            Assert.That(
+                result["GuidCollection"],
+                Is.EqualTo(
+                    (RedisValue)$@"{
+                            typeof(Guid[]).AssemblyQualifiedName
+                        }||00000000-0000-0000-0000-000000000000||11c43ee8-b9d3-4e51-b73f-bd9dda66e29c"));
+        }
+
+        [Test]
+        public void ToRedis_should_be_able_to_handle_list_of_Guids()
+        {
             RedisMapper.RegisterType<CollectionOfGuidTestType2>();
             Assert.That(
                 RedisMapper.TypesWithRegisteredProperties[typeof(CollectionOfGuidTestType2)],
@@ -246,7 +316,7 @@ namespace RediSearchSharp.Tests
                 {"DoubleProperty", 3.0d},
                 {"DecimalProperty", 1234.5678m.ToString(CultureInfo.InvariantCulture)},
                 {"DateTimeProperty", new DateTime(2000, 1, 1, 12, 0, 0).ToString("O")},
-                {"CharProperty", 'a'},
+                {"CharProperty", "a"},
                 {"StringProperty", "teszt"},
                 {"GeoPositionProperty", "12.123,45.456"},
                 {"ByteArrayProperty", new byte[] {0, 1, 2}},
@@ -302,6 +372,56 @@ namespace RediSearchSharp.Tests
                     "item3",
                     "|item4"
                 }));
+        }
+
+        [Test]
+        public void ToRedis_should_return_a_dictionary_of_RedisValues_with_correct_values_for_objects_without_collections()
+        {
+            RedisMapper.RegisterType<TestType1>();
+
+            var subject = new TestType1
+            {
+                BoolProperty = true,
+                ByteProperty = 255,
+                SByteProperty = -128,
+                ShortProperty = -32768,
+                UShortProperty = 65535,
+                IntProperty = -2147483648,
+                UIntProperty = 4294967295,
+                LongProperty = -9223372036854775808,
+                ULongProperty = 18446744073709551615,
+                FloatProperty = 2.0f,
+                DoubleProperty = 3.0d,
+                DecimalProperty = 1234513231242123.123321321323m,
+                DateTimeProperty = new DateTime(2000, 1, 1, 12, 0, 0),
+                CharProperty = 'a',
+                StringProperty = "teszt",
+                GeoPositionProperty = new GeoPosition(12.123, 45.456),
+                ByteArrayProperty = new byte[] {0, 1, 2},
+                GuidProperty = Guid.Empty,
+            };
+
+            var result = RedisMapper.MapToRedisValues(subject);
+
+            Assert.That(result["BoolProperty"], Is.EqualTo((RedisValue) true));
+            Assert.That(result["ByteProperty"], Is.EqualTo((RedisValue) 255));
+            Assert.That(result["SByteProperty"], Is.EqualTo((RedisValue) (-128)));
+            Assert.That(result["ShortProperty"], Is.EqualTo((RedisValue) (-32768)));
+            Assert.That(result["UShortProperty"], Is.EqualTo((RedisValue) 65535));
+            Assert.That(result["IntProperty"], Is.EqualTo((RedisValue) (-2147483648)));
+            Assert.That(result["UIntProperty"], Is.EqualTo((RedisValue) 4294967295));
+            Assert.That(result["LongProperty"], Is.EqualTo((RedisValue) (-9223372036854775808)));
+            Assert.That(result["ULongProperty"], Is.EqualTo((RedisValue) 18446744073709551615.ToString(CultureInfo.InvariantCulture)));
+            Assert.That(result["FloatProperty"], Is.EqualTo((RedisValue) 2.0f));
+            Assert.That(result["DoubleProperty"], Is.EqualTo((RedisValue) 3.0d));
+            Assert.That(result["DecimalProperty"], Is.EqualTo((RedisValue)1234513231242123.123321321323m.ToString(CultureInfo.InvariantCulture)));
+            Assert.That(result["DateTimeProperty"], Is.EqualTo((RedisValue) new DateTime(2000, 1, 1, 12, 0, 0).ToString("O")));
+            Assert.That(result["CharProperty"], Is.EqualTo((RedisValue) "a"));
+            Assert.That(result["StringProperty"], Is.EqualTo((RedisValue) "teszt"));
+            Assert.That(result["GeoPositionProperty"], Is.EqualTo((RedisValue)$"{12.123d.ToString("G17", CultureInfo.InvariantCulture)},{45.456d.ToString("G17", CultureInfo.InvariantCulture)}"));
+            Assert.That(result["ByteArrayProperty"],
+                Is.EqualTo((RedisValue) new byte[] {0, 1, 2}));
+            Assert.That(result["GuidProperty"], Is.EqualTo((RedisValue) Guid.Empty.ToString()));
         }
 
         [Test]

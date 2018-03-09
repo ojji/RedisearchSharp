@@ -26,9 +26,9 @@ namespace RediSearchSharp.Serialization
             { typeof(ulong), o => ((ulong)o).ToString(CultureInfo.InvariantCulture)},
             { typeof(float), o => (float)o },
             { typeof(double), o => (double)o },
-            { typeof(decimal), o => ((ulong)o).ToString(CultureInfo.InvariantCulture)},
+            { typeof(decimal), o => ((decimal)o).ToString(CultureInfo.InvariantCulture)},
             { typeof(DateTime), o => ((DateTime)o).ToString("O") },
-            { typeof(char), o => (string)o},
+            { typeof(char), o => o.ToString()},
             { typeof(string), o => (string)o },
             { typeof(GeoPosition), o =>
                     string.Join(',',
@@ -53,7 +53,7 @@ namespace RediSearchSharp.Serialization
             { typeof(double), o => (double)o },
             { typeof(decimal), o => decimal.Parse(o, CultureInfo.InvariantCulture)},
             { typeof(DateTime), o => DateTime.Parse(o) },
-            { typeof(char), o => (char)o},
+            { typeof(char), o => char.Parse(o)},
             { typeof(string), o => (string)o },
             { typeof(GeoPosition), o =>
                 {
