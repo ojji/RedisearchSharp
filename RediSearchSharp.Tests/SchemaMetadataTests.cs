@@ -189,7 +189,7 @@ namespace RediSearchSharp.Tests
 
                 var schemaMetadata = SchemaMetadata<OverriddenIdPropertyTest>.GetSchemaMetadata();
                 Assert.That(schemaMetadata.PrimaryKeySelector, Is.Not.Null);
-                Assert.That(schemaMetadata.PrimaryKeySelector(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString(CultureInfo.CurrentCulture)));
+                Assert.That(schemaMetadata.PrimaryKeySelector(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString(CultureInfo.InvariantCulture)));
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]

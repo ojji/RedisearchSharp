@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq.Expressions;
 using StackExchange.Redis;
 
@@ -20,35 +21,19 @@ namespace RediSearchSharp.Internal
         {
             var parameter = Expression.Parameter(typeof(TEntity));
             Expression propertyValue = Expression.Property(parameter, _propertyName);
-            if (!BuiltInRedisValueTypes.Contains(_propertyType))
-            {
-                propertyValue = Expression.Call(propertyValue, typeof(object).GetMethod("ToString"));
-            }
 
+            var toStringWithIFormatProvider = _propertyType.GetMethod("ToString", new[] {typeof(IFormatProvider)});
+
+            // call tostring
+            propertyValue = toStringWithIFormatProvider != null
+                ? Expression.Call(propertyValue, toStringWithIFormatProvider,
+                    Expression.Constant(CultureInfo.InvariantCulture))
+                : Expression.Call(propertyValue, typeof(object).GetMethod("ToString"));
+
+            // and convert the string to a redisvalue
             var body = Expression.Convert(propertyValue, typeof(RedisValue));
-
             var retValue = Expression.Lambda<Func<TEntity, RedisValue>>(body, parameter);
             return retValue.Compile();
         }
-
-        private static readonly List<Type> BuiltInRedisValueTypes = new List<Type>
-        {
-            typeof(byte[]),
-            typeof(bool),
-            typeof(byte),
-            typeof(char),
-            typeof(decimal),
-            typeof(double),
-            typeof(short),
-            typeof(int),
-            typeof(long),
-            typeof(object),
-            typeof(sbyte),
-            typeof(float),
-            typeof(string),
-            typeof(ushort),
-            typeof(uint),
-            typeof(ulong)
-        };
     }
 }
