@@ -17,7 +17,7 @@ namespace RediSearchSharp.Utils
 
         public static RedisValue GetBoxedLiteral(string literal)
         {
-            return IndexNameCache.GetOrAdd(literal, (RedisValue)literal);
+            return LiteralCache.GetOrAdd(literal, (RedisValue) literal);
         }
     }
 }
