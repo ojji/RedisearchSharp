@@ -161,12 +161,13 @@ namespace RediSearchSharp.Tests
                 };
 
                 var schemaMetadata = SchemaMetadata<IdPropertiesTest1>.GetSchemaMetadata();
-                Assert.That(schemaMetadata.PrimaryKeySelector, Is.Not.Null);
-                Assert.That(schemaMetadata.PrimaryKeySelector(testObj1), Is.EqualTo((RedisValue)Guid.Empty.ToString()));
+
+                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity(), Is.Not.Null);
+                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity()(testObj1), Is.EqualTo((RedisValue)Guid.Empty.ToString()));
 
                 var schemaInfo2 = SchemaMetadata<IdPropertiesTest2>.GetSchemaMetadata();
-                Assert.That(schemaInfo2.PrimaryKeySelector, Is.Not.Null);
-                Assert.That(schemaInfo2.PrimaryKeySelector(testObj2), Is.EqualTo((RedisValue)42));
+                Assert.That(schemaInfo2.GetPrimaryKeySelectorFromEntity(), Is.Not.Null);
+                Assert.That(schemaInfo2.GetPrimaryKeySelectorFromEntity()(testObj2), Is.EqualTo((RedisValue)42));
             }
 
             private class OverriddenIdPropertyTest : RedisearchSerializable<OverriddenIdPropertyTest>
@@ -188,8 +189,8 @@ namespace RediSearchSharp.Tests
                 };
 
                 var schemaMetadata = SchemaMetadata<OverriddenIdPropertyTest>.GetSchemaMetadata();
-                Assert.That(schemaMetadata.PrimaryKeySelector, Is.Not.Null);
-                Assert.That(schemaMetadata.PrimaryKeySelector(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString(CultureInfo.InvariantCulture)));
+                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity(), Is.Not.Null);
+                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity()(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString(CultureInfo.InvariantCulture)));
             }
 
             [SuppressMessage("ReSharper", "UnusedMember.Local")]

@@ -7,6 +7,7 @@ using System.Text;
 using RediSearchSharp.Internal;
 using RediSearchSharp.Serialization;
 using RediSearchSharp.Utils;
+using StackExchange.Redis;
 
 namespace RediSearchSharp.Query
 {
@@ -50,7 +51,8 @@ namespace RediSearchSharp.Query
 
     public interface IQueryOptions<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
     {   
-        IQueryOptions<TEntity> InKeys(string[] keys);
+        IQueryOptions<TEntity> WithId<TProperty>(TProperty id);
+        IQueryOptions<TEntity> WithId<TProperty>(TProperty[] ids);
         IQueryOptions<TEntity> WithSlop(int slop);
         IQueryOptions<TEntity> SortBy<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector, SortingOrder order = SortingOrder.Ascending);
         IQueryOptions<TEntity> Limit(int offset, int count);
@@ -75,7 +77,7 @@ namespace RediSearchSharp.Query
         private readonly StringBuilder _queryBuilder;
         private readonly Dictionary<string, List<Filter>> _filters;
         private int _slop;
-        private string[] _limitKeys;
+        private RedisValue[] _ids;
         private string _sortingBy;
         private SortingOrder _sortingOrder;
         private Paging _paging;
@@ -289,13 +291,27 @@ namespace RediSearchSharp.Query
             return this;
         }
 
-        IQueryOptions<TEntity> IQueryOptions<TEntity>.InKeys(string[] keys)
+        IQueryOptions<TEntity> IQueryOptions<TEntity>.WithId<TProperty>(TProperty id)
         {
-            if (keys == null || keys.Length == 0)
+            if (id == null)
+            {
+                throw new ArgumentException("The id must not be null.");
+            }
+
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            _ids = new [] { schemaMetadata.GetPrimaryKeySelectorFromProperty<TProperty>()(id) };
+            return this;
+        }
+
+        IQueryOptions<TEntity> IQueryOptions<TEntity>.WithId<TProperty>(TProperty[] ids)
+        {
+            if (ids == null || ids.Length == 0)
             {
                 throw new ArgumentException("The keys array must not be null or empty.");
             }
-            _limitKeys = keys;
+
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            _ids = ids.Select(id => schemaMetadata.GetPrimaryKeySelectorFromProperty<TProperty>()(id)).ToArray();
             return this;
         }
 
@@ -354,12 +370,12 @@ namespace RediSearchSharp.Query
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("WITHSCOREKEYS"));
             }
 
-            if (_limitKeys != null && _limitKeys.Length != 0)
+            if (_ids != null && _ids.Length != 0)
             {
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("INKEYS"));
-                args.Add(_limitKeys.Length);
+                args.Add(_ids.Length);
 
-                foreach (var key in _limitKeys.Select(id => string.Concat(schemaMetadata.DocumentIdPrefix, id)))
+                foreach (var key in _ids.Select(id => string.Concat(schemaMetadata.DocumentIdPrefix, id)))
                 {
                     args.Add(key);
                 }

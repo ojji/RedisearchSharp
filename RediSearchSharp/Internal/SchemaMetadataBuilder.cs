@@ -21,7 +21,7 @@ namespace RediSearchSharp.Internal
         private string _documentIdPrefix;
         private readonly Dictionary<string, PropertyMetadataBuilder> _propertyMetadataBuilders;
         private string _language;
-        private PrimaryKeySelectorBuilder _primaryKeySelectorBuilder;
+        private PrimaryKeyBuilder _primaryKeyBuilder;
 
         internal SchemaMetadataBuilder()
         {
@@ -59,7 +59,7 @@ namespace RediSearchSharp.Internal
         /// <param name="propertySelector">Expression that selects the primary key property.</param>
         public void PrimaryKey<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector)
         {
-            _primaryKeySelectorBuilder = new PrimaryKeySelectorBuilder(propertySelector.GetMemberName(), typeof(TProperty));
+            _primaryKeyBuilder = new PrimaryKeyBuilder(propertySelector.GetMemberName(), typeof(TProperty));
         }
 
         /// <summary>
@@ -114,7 +114,7 @@ namespace RediSearchSharp.Internal
             var indexName = _indexName ?? _conventions.GetIndexName<TEntity>();
             var documentIdPrefix = _documentIdPrefix ?? _conventions.GetDocumentIdPrefix<TEntity>();
             var propertyMetadata = _propertyMetadataBuilders.Select(pmb => pmb.Value.Build()).ToArray();
-            var primaryKey = _primaryKeySelectorBuilder?.Build<TEntity>() ?? _conventions.GetPrimaryKey<TEntity>();
+            var primaryKey = _primaryKeyBuilder?.Build<TEntity>() ?? _conventions.GetPrimaryKey<TEntity>();
             var language = _language ?? _conventions.GetDefaultLanguage();
 
             return new SchemaMetadata<TEntity>(indexName, documentIdPrefix, propertyMetadata, primaryKey, language);

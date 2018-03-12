@@ -7,7 +7,7 @@ namespace RediSearchSharp.Internal
     {
         string GetIndexName<TEntity>();
         string GetDocumentIdPrefix<TEntity>();
-        Func<TEntity, RedisValue> GetPrimaryKey<TEntity>();
+        PrimaryKey GetPrimaryKey<TEntity>();
         string GetDefaultLanguage();
     }
 }

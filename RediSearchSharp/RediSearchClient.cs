@@ -65,7 +65,7 @@ namespace RediSearchSharp
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
 
             var indexName = schemaMetadata.IndexName;
-            var entityId = string.Concat(schemaMetadata.DocumentIdPrefix, schemaMetadata.PrimaryKeySelector(entity));
+            var entityId = string.Concat(schemaMetadata.DocumentIdPrefix, schemaMetadata.GetPrimaryKeySelectorFromEntity()(entity));
 
             if (string.IsNullOrEmpty(language))
             {

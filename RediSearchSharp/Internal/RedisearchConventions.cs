@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Reflection;
 using RediSearchSharp.Query;
-using StackExchange.Redis;
 
 namespace RediSearchSharp.Internal
 {
@@ -20,7 +19,7 @@ namespace RediSearchSharp.Internal
             return $"{Pluralize(typeof(TEntity).Name)}:";
         }
 
-        public virtual Func<TEntity, RedisValue> GetPrimaryKey<TEntity>()
+        public virtual PrimaryKey GetPrimaryKey<TEntity>()
         {
             var getSetProperties = typeof(TEntity).GetProperties(BindingFlags.DeclaredOnly |
                                                      BindingFlags.Public |
@@ -35,7 +34,7 @@ namespace RediSearchSharp.Internal
                 throw new ArgumentException("Could not find a default id property, please specify one.");
             }
 
-            return new PrimaryKeySelectorBuilder(idProperty.Name, idProperty.PropertyType).Build<TEntity>();
+            return new PrimaryKeyBuilder(idProperty.Name, idProperty.PropertyType).Build<TEntity>();
         }
 
         public virtual string GetDefaultLanguage()

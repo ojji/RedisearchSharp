@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RediSearchSharp", "RediSearchSharp\RediSearchSharp.csproj", "{FDDB0FFC-F925-44B5-8D22-C3E009254F83}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RediSearchSharp.Tests", "RediSearchSharp.Tests\RediSearchSharp.Tests.csproj", "{D41E1A5B-5A3B-4511-8877-6ACBCBADE2C5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RediSearchSharp.Tests", "RediSearchSharp.Tests\RediSearchSharp.Tests.csproj", "{D41E1A5B-5A3B-4511-8877-6ACBCBADE2C5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
