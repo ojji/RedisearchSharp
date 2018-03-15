@@ -1,7 +1,4 @@
-﻿using System;
-using StackExchange.Redis;
-
-namespace RediSearchSharp.Internal
+﻿namespace RediSearchSharp.Internal
 {
     public interface IRedisearchConventions
     {
