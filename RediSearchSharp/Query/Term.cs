@@ -60,12 +60,12 @@ namespace RediSearchSharp.Query
             return new Term(value, true, false, DefaultTermNormalizer);
         }
         
-        internal string GetValue(TermResolvingStrategies termResolvingStrategy)
+        internal string GetValue(TermResolvingStrategy termResolvingStrategy)
         {
             // if the term is not default we ignore the strategy param
             // if the term is default we use the strategy param value
             var useExact = (!IsDefault && IsExact) ||
-                           (IsDefault && termResolvingStrategy == TermResolvingStrategies.Exact);
+                           (IsDefault && termResolvingStrategy == TermResolvingStrategy.Exact);
 
             if (useExact)
             {

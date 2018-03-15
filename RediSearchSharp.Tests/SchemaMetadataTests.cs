@@ -14,7 +14,7 @@ namespace RediSearchSharp.Tests
     public class SchemaMetadataTests
     {
         [TestFixture]
-        public class GetSchemaInfo
+        public class GetSchemaMetadata
         {
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
             private class Car : RedisearchSerializable<Car>
@@ -135,77 +135,6 @@ namespace RediSearchSharp.Tests
                     Is.EquivalentTo(new[] { "Id", "Property1", "Property2" }));
             }
 
-            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
-            private class IdPropertiesTest1 : RedisearchSerializable<IdPropertiesTest1>
-            {
-                public Guid Id { get; set; }
-            }
-
-            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
-            private class IdPropertiesTest2 : RedisearchSerializable<IdPropertiesTest2>
-            {
-                public int IdPropertiesTest2Id { get; set; }
-            }
-
-            [Test]
-            public void Default_id_should_be_recognizable_by_convention()
-            {
-                var testObj1 = new IdPropertiesTest1
-                {
-                    Id = Guid.Empty
-                };
-
-                var testObj2 = new IdPropertiesTest2
-                {
-                    IdPropertiesTest2Id = 42
-                };
-
-                var schemaMetadata = SchemaMetadata<IdPropertiesTest1>.GetSchemaMetadata();
-
-                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity(), Is.Not.Null);
-                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity()(testObj1), Is.EqualTo((RedisValue)Guid.Empty.ToString()));
-
-                var schemaInfo2 = SchemaMetadata<IdPropertiesTest2>.GetSchemaMetadata();
-                Assert.That(schemaInfo2.GetPrimaryKeySelectorFromEntity(), Is.Not.Null);
-                Assert.That(schemaInfo2.GetPrimaryKeySelectorFromEntity()(testObj2), Is.EqualTo((RedisValue)42));
-            }
-
-            private class OverriddenIdPropertyTest : RedisearchSerializable<OverriddenIdPropertyTest>
-            {
-                public DateTime InterestingId { get; set; }
-
-                protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<OverriddenIdPropertyTest> builder)
-                {
-                    builder.PrimaryKey(t => t.InterestingId);
-                }
-            }
-
-            [Test]
-            public void Default_id_should_be_overridable()
-            {
-                var testObj = new OverriddenIdPropertyTest
-                {
-                    InterestingId = new DateTime(2018, 12, 12)
-                };
-
-                var schemaMetadata = SchemaMetadata<OverriddenIdPropertyTest>.GetSchemaMetadata();
-                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity(), Is.Not.Null);
-                Assert.That(schemaMetadata.GetPrimaryKeySelectorFromEntity()(testObj), Is.EqualTo((RedisValue)testObj.InterestingId.ToString(CultureInfo.InvariantCulture)));
-            }
-
-            [SuppressMessage("ReSharper", "UnusedMember.Local")]
-            private class ThrowingIdPropertyTest : RedisearchSerializable<ThrowingIdPropertyTest>
-            {
-                public DateTime InterestingId { get; set; }
-            }
-
-            [Test]
-            public void Should_throw_when_no_default_id_can_be_detected_and_no_override_was_specified()
-            {
-                Assert.Throws<ArgumentException>(() => 
-                    SchemaMetadata<ThrowingIdPropertyTest>.GetSchemaMetadata());
-            }
-
             [SuppressMessage("ReSharper", "UnusedMember.Local")]
             private class DefaultLanguageTest : RedisearchSerializable<DefaultLanguageTest>
             {
@@ -284,6 +213,150 @@ namespace RediSearchSharp.Tests
                 Assert.That(propertiesWithTypes["StringProperty"], Is.EqualTo(RedisearchPropertyType.Fulltext));
                 Assert.That(propertiesWithTypes["GeoPositionProperty"], Is.EqualTo(RedisearchPropertyType.Geo));
                 Assert.That(propertiesWithTypes["ObjectProperty"], Is.EqualTo(RedisearchPropertyType.Fulltext));
+            }
+
+            [TestFixture]
+            public class PrimaryKeyTests
+            {
+                [SuppressMessage("ReSharper", "UnusedMember.Local")]
+                private class IdPropertiesTest1 : RedisearchSerializable<IdPropertiesTest1>
+                {
+                    public Guid Id { get; set; }
+                }
+
+                [SuppressMessage("ReSharper", "UnusedMember.Local")]
+                private class IdPropertiesTest2 : RedisearchSerializable<IdPropertiesTest2>
+                {
+                    public int IdPropertiesTest2Id { get; set; }
+                }
+
+                [Test]
+                public void Default_id_should_be_recognizable_by_convention()
+                {
+                    var schemaMetadata1 = SchemaMetadata<IdPropertiesTest1>.GetSchemaMetadata();
+                    Assert.That(schemaMetadata1.PrimaryKey.EntityClrType, Is.EqualTo(typeof(IdPropertiesTest1)));
+                    Assert.That(schemaMetadata1.PrimaryKey.PropertyName, Is.EqualTo("Id"));
+                    Assert.That(schemaMetadata1.PrimaryKey.PropertyClrType, Is.EqualTo(typeof(Guid)));
+
+                    var schemaMetadata2 = SchemaMetadata<IdPropertiesTest2>.GetSchemaMetadata();
+                    Assert.That(schemaMetadata2.PrimaryKey.EntityClrType, Is.EqualTo(typeof(IdPropertiesTest2)));
+                    Assert.That(schemaMetadata2.PrimaryKey.PropertyName, Is.EqualTo("IdPropertiesTest2Id"));
+                    Assert.That(schemaMetadata2.PrimaryKey.PropertyClrType, Is.EqualTo(typeof(int)));
+                }
+
+                [SuppressMessage("ReSharper", "MemberCanBePrivate.Local")]
+                [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+                private class OverriddenIdPropertyTest : RedisearchSerializable<OverriddenIdPropertyTest>
+                {
+                    public DateTime InterestingId { get; set; }
+
+                    protected override void OnCreatingSchemaInfo(SchemaMetadataBuilder<OverriddenIdPropertyTest> builder)
+                    {
+                        builder.PrimaryKey(t => t.InterestingId);
+                    }
+                }
+
+                [Test]
+                public void Default_id_should_be_overridable()
+                {
+                    var schemaMetadata = SchemaMetadata<OverriddenIdPropertyTest>.GetSchemaMetadata();
+                    Assert.That(schemaMetadata.PrimaryKey.EntityClrType, Is.EqualTo(typeof(OverriddenIdPropertyTest)));
+                    Assert.That(schemaMetadata.PrimaryKey.PropertyName, Is.EqualTo("InterestingId"));
+                    Assert.That(schemaMetadata.PrimaryKey.PropertyClrType, Is.EqualTo(typeof(DateTime)));
+                }
+
+                [SuppressMessage("ReSharper", "UnusedMember.Local")]
+                private class ThrowingIdPropertyTest : RedisearchSerializable<ThrowingIdPropertyTest>
+                {
+                    public DateTime InterestingId { get; set; }
+                }
+
+                [Test]
+                public void Should_throw_when_no_default_id_can_be_detected_and_no_override_was_specified()
+                {
+                    Assert.Throws<ArgumentException>(() =>
+                        SchemaMetadata<ThrowingIdPropertyTest>.GetSchemaMetadata());
+                }
+
+                [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+                private class GetPrimaryKeyFromEntityTests : RedisearchSerializable<GetPrimaryKeyFromEntityTests>
+                {
+                    public int Id { get; set; }
+                }
+
+                [Test]
+                public void GetPrimaryKeyFromEntity_should_throw_when_the_entity_type_is_different()
+                {
+                    var schemaMetadata = SchemaMetadata<GetPrimaryKeyFromEntityTests>.GetSchemaMetadata();
+
+                    Assert.Throws<ArgumentException>(() =>
+                    {
+                        schemaMetadata.PrimaryKey.GetPrimaryKeyFromEntity(5);
+                    });
+                }
+
+                [Test]
+                public void GetPrimaryKeyFromEntity_should_return_the_id_value_as_a_RedisValue()
+                {
+                    var schemaMetadata = SchemaMetadata<GetPrimaryKeyFromEntityTests>.GetSchemaMetadata();
+
+                    var entity = new GetPrimaryKeyFromEntityTests
+                    {
+                        Id = 42
+                    };
+
+                    Assert.That(schemaMetadata.PrimaryKey.GetPrimaryKeyFromEntity(entity), Is.EqualTo((RedisValue) 42));
+                }
+
+                [Test]
+                public void GetPrimaryKeyFromProperty_should_throw_when_the_property_type_is_different()
+                {
+                    var schemaMetadata = SchemaMetadata<GetPrimaryKeyFromEntityTests>.GetSchemaMetadata();
+
+                    Assert.Throws<ArgumentException>(() =>
+                    {
+                        schemaMetadata.PrimaryKey.GetPrimaryKeyFromProperty(Guid.Empty);
+                    });
+                }
+
+                [Test]
+                public void GetPrimaryKeyFromProperty_should_return_the_property_value_as_a_RedisValue()
+                {
+                    var schemaMetadata = SchemaMetadata<GetPrimaryKeyFromEntityTests>.GetSchemaMetadata();
+
+                    Assert.That(schemaMetadata.PrimaryKey.GetPrimaryKeyFromProperty(42), Is.EqualTo((RedisValue)42));
+                }
+
+                
+                [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+                [SuppressMessage("ReSharper", "InconsistentNaming")]
+                private class IFormattableTest : RedisearchSerializable<IFormattableTest>
+                {
+                    public DateTime Id { get; set; }
+                }
+
+                [Test]
+                public void Primary_key_with_of_an_IFormattable_should_return_a_value_with_InvariantCulture()
+                {
+                    var schemaMetadata = SchemaMetadata<IFormattableTest>.GetSchemaMetadata();
+
+                    var entity = new IFormattableTest
+                    {
+                        Id = new DateTime(2010, 10, 11, 12, 0, 0)
+                    };
+
+                    var property = new DateTime(2010, 10, 11, 12, 0, 0);
+
+                    Assert.That(
+                        schemaMetadata.PrimaryKey.GetPrimaryKeyFromEntity(entity),
+                        Is.EqualTo((RedisValue) new DateTime(2010, 10, 11, 12, 0, 0).ToString(CultureInfo
+                            .InvariantCulture)));
+
+                    Assert.That(
+                        schemaMetadata.PrimaryKey.GetPrimaryKeyFromProperty(property),
+                        Is.EqualTo((RedisValue)new DateTime(2010, 10, 11, 12, 0, 0).ToString(CultureInfo
+                            .InvariantCulture)));
+                }
             }
         }
     }

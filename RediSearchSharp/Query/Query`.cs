@@ -5,78 +5,37 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using RediSearchSharp.Internal;
+using RediSearchSharp.Query.Interfaces;
 using RediSearchSharp.Serialization;
 using RediSearchSharp.Utils;
 using StackExchange.Redis;
 
 namespace RediSearchSharp.Query
 {
-    public interface IMatching<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
-    {
-        IMatchingContinuation<TEntity> MustMatch(Term term);
-        IMatchingContinuation<TEntity> MustMatch(Term[] terms);
-        IMatchingContinuation<TEntity> MustMatch(string term);
-        IMatchingContinuation<TEntity> MustMatch(string[] terms);
-
-        IMatchingContinuation<TEntity> MustNotMatch(string term);
-        IMatchingContinuation<TEntity> MustNotMatch(string[] terms);
-        IMatchingContinuation<TEntity> MustNotMatch(Term term);
-        IMatchingContinuation<TEntity> MustNotMatch(Term[] terms);
-
-        IMatchingContinuation<TEntity> ShouldMatch(string term);
-        IMatchingContinuation<TEntity> ShouldMatch(string[] terms);
-        IMatchingContinuation<TEntity> ShouldMatch(Term term);
-        IMatchingContinuation<TEntity> ShouldMatch(Term[] terms);
-        
-        IMatchingContinuation<TEntity> MustMatch(NumericTerm term);
-        IMatchingContinuation<TEntity> MustMatch(NumericTerm[] terms);
-        IMatchingContinuation<TEntity> MustNotMatch(NumericTerm term);
-        IMatchingContinuation<TEntity> MustNotMatch(NumericTerm[] terms);
-        IMatchingContinuation<TEntity> ShouldMatch(NumericTerm term);
-        IMatchingContinuation<TEntity> ShouldMatch(NumericTerm[] terms);
-
-        IMatchingContinuation<TEntity> MustMatch(GeoTerm term);
-        IMatchingContinuation<TEntity> MustMatch(GeoTerm[] terms);
-        IMatchingContinuation<TEntity> MustNotMatch(GeoTerm term);
-        IMatchingContinuation<TEntity> MustNotMatch(GeoTerm[] terms);
-        IMatchingContinuation<TEntity> ShouldMatch(GeoTerm term);
-        IMatchingContinuation<TEntity> ShouldMatch(GeoTerm[] terms);
-    }
-
-    public enum SortingOrder
-    {
-        Ascending,
-        Descending
-    }
-
-    public interface IQueryOptions<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
-    {   
-        IQueryOptions<TEntity> WithId<TProperty>(TProperty id);
-        IQueryOptions<TEntity> WithId<TProperty>(TProperty[] ids);
-        IQueryOptions<TEntity> WithSlop(int slop);
-        IQueryOptions<TEntity> SortBy<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector, SortingOrder order = SortingOrder.Ascending);
-        IQueryOptions<TEntity> Limit(int offset, int count);
-        Query<TEntity> Build();
-        Query<TEntity> Build(Action<QueryOptions> optionsBuilder);
-    }
-
-    public interface IMatchingContinuation<TEntity> : IMatching<TEntity>, IQueryOptions<TEntity> where TEntity : RedisearchSerializable<TEntity>, new()
-    {
-        IMatching<TEntity> And();
-        IMatching<TEntity> And<TProperty>(params Expression<Func<TEntity, TProperty>>[] propertySelectors);
-    }
     /// <summary>
     /// Represents a search query to execute and retrieve results from the redisearch engine.
     /// </summary>
-    public class Query<TEntity> : IMatchingContinuation<TEntity>
+    public class Query<TEntity> : IWhereOrOptions<TEntity>, IWhereOrWithId<TEntity>,  IAndOrOptions<TEntity>
         where TEntity : RedisearchSerializable<TEntity>, new()
     {
-        public QueryOptions Options { get; }
+        internal class QueryOptions
+        {
+            internal bool Verbatim { get; set; }
+            internal bool WithScores { get; set; }
+            internal bool WithScoreKeys { get; set; }
+            internal bool WithPayloads { get; set; }
+            internal bool DisableStopwordFiltering { get; set; }
+            internal TermResolvingStrategy DefaultTermResolvingStrategy { get; set; }
+            internal bool InOrder { get; set; }
+            internal string Language { get; set; }
+            internal int Slop { get; set; }
+        }
+
+        internal QueryOptions Options { get; }
 
         private string _currentFieldKey;
         private readonly StringBuilder _queryBuilder;
         private readonly Dictionary<string, List<Filter>> _filters;
-        private int _slop;
         private RedisValue[] _ids;
         private string _sortingBy;
         private SortingOrder _sortingOrder;
@@ -84,11 +43,55 @@ namespace RediSearchSharp.Query
 
         public Query()
         {
-            Options = QueryOptions.DefaultOptions;
+            Options = new QueryOptions
+            {
+                Verbatim = false,
+                WithScores = false,
+                WithScoreKeys = false,
+                WithPayloads = false,
+                DisableStopwordFiltering = false,
+                DefaultTermResolvingStrategy = TermResolvingStrategy.Exact,
+                InOrder = false,
+                Language = null,
+                Slop = -1
+            };
+
             _filters = new Dictionary<string, List<Filter>>();
             _queryBuilder = new StringBuilder();
-            _slop = -1;
             _paging = new Paging(0, 10);
+        }
+
+        public IWhereOrOptions<TEntity> WithId<TProperty>(TProperty id)
+        {
+            if (id == null)
+            {
+                throw new ArgumentException("The id must not be null.");
+            }
+
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+
+            _ids = new[]
+            {
+                (RedisValue) string.Concat(schemaMetadata.DocumentIdPrefix,
+                    schemaMetadata.PrimaryKey.GetPrimaryKeyFromProperty(id))
+            };
+            return this;
+        }
+
+        public IWhereOrOptions<TEntity> WithId<TProperty>(params TProperty[] ids)
+        {
+            if (ids == null || ids.Length == 0)
+            {
+                throw new ArgumentException("The id array must not be null or empty.");
+            }
+
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+
+            _ids = ids
+                .Select(id => (RedisValue) string.Concat(schemaMetadata.DocumentIdPrefix,
+                    schemaMetadata.PrimaryKey.GetPrimaryKeyFromProperty(id)))
+                .ToArray();
+            return this;
         }
 
         public IMatching<TEntity> Where()
@@ -103,13 +106,13 @@ namespace RediSearchSharp.Query
             return this;
         }
 
-        IMatching<TEntity> IMatchingContinuation<TEntity>.And()
+        IMatching<TEntity> IAndOrOptions<TEntity>.And()
         {
             CreateOrChangeFieldKey<object>(null);
             return this;
         }
         
-        IMatching<TEntity> IMatchingContinuation<TEntity>.And<TProperty>(Expression<Func<TEntity, TProperty>>[] propertySelectors)
+        IMatching<TEntity> IAndOrOptions<TEntity>.And<TProperty>(Expression<Func<TEntity, TProperty>>[] propertySelectors)
         {
             CreateOrChangeFieldKey(propertySelectors);
             return this;
@@ -139,211 +142,264 @@ namespace RediSearchSharp.Query
             return fieldKeyBuilder.ToString(0, fieldKeyBuilder.Length - 1);
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(string term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(string term)
         {
             return ((IMatching<TEntity>)this).MustMatch(term.AsDefaultTerm());
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(string[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(string[] terms)
         {
             var termsConverted = terms.Select(t => t.AsDefaultTerm());
             return ((IMatching<TEntity>)this).MustMatch(termsConverted.ToArray());
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(Term term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(Term term)
         {
             _filters[_currentFieldKey].Add(new TextFilter(_currentFieldKey, Filter.FilterTypes.Must, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(Term[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(Term[] terms)
         {
             _filters[_currentFieldKey].Add(new TextFilter(_currentFieldKey, Filter.FilterTypes.Must, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(string term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(string term)
         {
             return ((IMatching<TEntity>)this).MustNotMatch(term.AsDefaultTerm());
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(string[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(string[] terms)
         {
             var termsConverted = terms.Select(t => t.AsDefaultTerm());
             return ((IMatching<TEntity>)this).MustNotMatch(termsConverted.ToArray());
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(Term term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(Term term)
         {
             _filters[_currentFieldKey].Add(new TextFilter(_currentFieldKey, Filter.FilterTypes.MustNot, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(Term[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(Term[] terms)
         {
             _filters[_currentFieldKey].Add(new TextFilter(_currentFieldKey, Filter.FilterTypes.MustNot, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(string term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(string term)
         {
             return ((IMatching<TEntity>)this).ShouldMatch(term.AsDefaultTerm());
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(string[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(string[] terms)
         {
             var termsConverted = terms.Select(t => t.AsDefaultTerm());
             return ((IMatching<TEntity>)this).ShouldMatch(termsConverted.ToArray());
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(Term term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(Term term)
         {
             _filters[_currentFieldKey].Add(new TextFilter(_currentFieldKey, Filter.FilterTypes.Should, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(Term[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(Term[] terms)
         {
             _filters[_currentFieldKey].Add(new TextFilter(_currentFieldKey, Filter.FilterTypes.Should, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(NumericTerm term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(NumericTerm term)
         {
             _filters[_currentFieldKey].Add(new NumericFilter(_currentFieldKey, Filter.FilterTypes.Must, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(NumericTerm[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(NumericTerm[] terms)
         {
             _filters[_currentFieldKey].Add(new NumericFilter(_currentFieldKey, Filter.FilterTypes.Must, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(NumericTerm term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(NumericTerm term)
         {
             _filters[_currentFieldKey].Add(new NumericFilter(_currentFieldKey, Filter.FilterTypes.MustNot, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(NumericTerm[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(NumericTerm[] terms)
         {
             _filters[_currentFieldKey].Add(new NumericFilter(_currentFieldKey, Filter.FilterTypes.MustNot, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(NumericTerm term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(NumericTerm term)
         {
             _filters[_currentFieldKey].Add(new NumericFilter(_currentFieldKey, Filter.FilterTypes.Should, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(NumericTerm[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(NumericTerm[] terms)
         {
             _filters[_currentFieldKey].Add(new NumericFilter(_currentFieldKey, Filter.FilterTypes.Should, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(GeoTerm term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(GeoTerm term)
         {
             _filters[_currentFieldKey].Add(new GeoFilter(_currentFieldKey, Filter.FilterTypes.Must, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustMatch(GeoTerm[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustMatch(GeoTerm[] terms)
         {
             _filters[_currentFieldKey].Add(new GeoFilter(_currentFieldKey, Filter.FilterTypes.Must, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(GeoTerm term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(GeoTerm term)
         {
             _filters[_currentFieldKey].Add(new GeoFilter(_currentFieldKey, Filter.FilterTypes.MustNot, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.MustNotMatch(GeoTerm[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.MustNotMatch(GeoTerm[] terms)
         {
             _filters[_currentFieldKey].Add(new GeoFilter(_currentFieldKey, Filter.FilterTypes.MustNot, terms));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(GeoTerm term)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(GeoTerm term)
         {
             _filters[_currentFieldKey].Add(new GeoFilter(_currentFieldKey, Filter.FilterTypes.Should, term));
             return this;
         }
 
-        IMatchingContinuation<TEntity> IMatching<TEntity>.ShouldMatch(GeoTerm[] terms)
+        IAndOrOptions<TEntity> IMatching<TEntity>.ShouldMatch(GeoTerm[] terms)
         {
             _filters[_currentFieldKey].Add(new GeoFilter(_currentFieldKey, Filter.FilterTypes.Should, terms));
             return this;
         }
         
-        IQueryOptions<TEntity> IQueryOptions<TEntity>.WithSlop(int slop)
+        IOptions<TEntity> IOptions<TEntity>.WithSlop(int slop)
         {
             if (slop < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(slop), "Slop value must be at least 0.");
             }
 
-            _slop = slop;
+            Options.Slop = slop;
             return this;
         }
 
-        IQueryOptions<TEntity> IQueryOptions<TEntity>.WithId<TProperty>(TProperty id)
-        {
-            if (id == null)
-            {
-                throw new ArgumentException("The id must not be null.");
-            }
-
-            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
-            _ids = new [] { schemaMetadata.GetPrimaryKeySelectorFromProperty<TProperty>()(id) };
-            return this;
-        }
-
-        IQueryOptions<TEntity> IQueryOptions<TEntity>.WithId<TProperty>(TProperty[] ids)
-        {
-            if (ids == null || ids.Length == 0)
-            {
-                throw new ArgumentException("The keys array must not be null or empty.");
-            }
-
-            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
-            _ids = ids.Select(id => schemaMetadata.GetPrimaryKeySelectorFromProperty<TProperty>()(id)).ToArray();
-            return this;
-        }
-
-        IQueryOptions<TEntity> IQueryOptions<TEntity>.SortBy<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector, SortingOrder order)
+        IOptions<TEntity> IOptions<TEntity>.SortBy<TProperty>(Expression<Func<TEntity, TProperty>> propertySelector, SortingOrder order)
         {   
             _sortingBy = propertySelector.GetMemberName();
             _sortingOrder = order;
             return this;
         }
 
-        IQueryOptions<TEntity> IQueryOptions<TEntity>.Limit(int offset, int count)
+        IOptions<TEntity> IOptions<TEntity>.Limit(int offset, int count)
         {
             _paging = new Paging(offset, count);
             return this;
         }
 
-        Query<TEntity> IQueryOptions<TEntity>.Build()
+        IOptions<TEntity> IOptions<TEntity>.UseVerbatim()
+        {
+            Options.Verbatim = true;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.WithScores()
+        {
+            Options.WithScores = true;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.WithScoreKeys()
+        {
+            Options.WithScoreKeys = true;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.WithPayloads()
+        {
+            Options.WithPayloads = true;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.WithoutStopwordFiltering()
+        {
+            Options.DisableStopwordFiltering = true;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.WithDefaultTermResolvingStrategy(TermResolvingStrategy termResolvingStrategy)
+        {
+            Options.DefaultTermResolvingStrategy = termResolvingStrategy;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.InOrder()
+        {
+            Options.InOrder = true;
+            return this;
+        }
+
+        IOptions<TEntity> IOptions<TEntity>.UseLanguage(string language)
+        {
+            Options.Language = language;
+            return this;
+        }
+
+        Query<TEntity> IOptions<TEntity>.Build()
         {
             return this;
         }
 
-        Query<TEntity> IQueryOptions<TEntity>.Build(Action<QueryOptions> optionsBuilder)
+        internal RetrieveEntitiesCommand CreateSearchCommand()
         {
-            optionsBuilder(Options);
-            return this;
+            if (_ids == null && _filters.Count == 0)
+            {
+                throw new InvalidOperationException("This is an empty query.");
+            }
+
+            if (_ids != null && _filters.Count == 0)
+            {
+                return RetrieveEntitiesCommand.MGet(CreateMGetArgs());
+            }
+
+            return RetrieveEntitiesCommand.Search(CreateSearchArgs(), Options.WithScores, Options.WithPayloads);
         }
-        
-        public void SerializeRedisArgs(List<object> args)
+
+        private List<object> CreateMGetArgs()
         {
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            var args = new List<object>()
+            {
+                schemaMetadata.IndexName
+            };
 
-            args.Add(BuildQueryString());
+            foreach (var id in _ids)
+            {
+                args.Add(id);
+            }
+
+            return args;
+        }
+
+        private List<object> CreateSearchArgs()
+        {
+            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
+            var args = new List<object>
+            {
+                schemaMetadata.IndexName,
+                BuildQueryString()
+            };
+
 
             if (Options.Verbatim)
             {
@@ -375,16 +431,16 @@ namespace RediSearchSharp.Query
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("INKEYS"));
                 args.Add(_ids.Length);
 
-                foreach (var key in _ids.Select(id => string.Concat(schemaMetadata.DocumentIdPrefix, id)))
+                foreach (var id in _ids)
                 {
-                    args.Add(key);
+                    args.Add(id);
                 }
             }
             
-            if (_slop > -1)
+            if (Options.Slop > -1)
             {
                 args.Add(RedisearchIndexCache.GetBoxedLiteral("SLOP"));
-                args.Add(_slop);
+                args.Add(Options.Slop);
             }
 
             if (Options.InOrder)
@@ -412,9 +468,11 @@ namespace RediSearchSharp.Query
                 args.Add(_paging.Offset);
                 args.Add(_paging.Count);
             }
+
+            return args;
         }
 
-        private string BuildQueryString()
+        private RedisValue BuildQueryString()
         {
             foreach (var fields in _filters)
             {

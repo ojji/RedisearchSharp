@@ -551,9 +551,24 @@ namespace RediSearchSharp.Tests
         public class Search : SearchFixture
         {
             [Test]
+            public void Search_by_id_sample()
+            {
+                var query = new Query<Car>()
+                    .WithId(Guid.Parse("11111111-1111-1111-1111-111111111111"))
+                    .Build();
+
+                var cars = Client.Search(query);
+                Assert.That(cars, Has.One.Items);
+            }
+
+            [Test]
             public void Search_sample()
             {
                 var query = new Query<Car>()
+                    .WithId(
+                        Guid.Empty, 
+                        Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                        Guid.Parse("44444444-4444-4444-4444-444444444444"))
                     .Where(c => c.Make)
                     .MustMatch("kia")
                     .Build();

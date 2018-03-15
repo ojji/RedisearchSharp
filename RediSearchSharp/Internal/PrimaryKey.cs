@@ -7,13 +7,45 @@ namespace RediSearchSharp.Internal
 {
     public class PrimaryKey
     {
-        public PrimaryKey(Type entityType, string propertyName, Type propertyType)
+        public string PropertyName { get; }
+        public Type PropertyClrType { get; }
+        public Type EntityClrType { get; }
+        
+        // this should be a Func<TEntity, RedisValue>
+        private object _primaryKeyFromEntityFunc;
+
+        // this should be a Func<TProperty, RedisValue>
+        private object _primaryKeyFromPropertyFunc;
+
+        internal PrimaryKey(Type entityType, string propertyName, Type propertyType)
         {
-            GetPrimaryKeyFromIdProperty = BuildGetPrimaryKeyFromIdProperty(propertyType);
-            GetPrimaryKeyFromEntity = BuildGetPrimaryKeyFromEntity(entityType, propertyName, propertyType);
+            PropertyClrType = propertyType;
+            PropertyName = propertyName;
+            EntityClrType = entityType;
+            BuildGetPrimaryKeyFromIdProperty(propertyType);
+            BuildGetPrimaryKeyFromEntity(entityType, propertyName, propertyType);
         }
 
-        private LambdaExpression BuildGetPrimaryKeyFromEntity(Type entityType, string propertyName, Type propertyType)
+        public RedisValue GetPrimaryKeyFromEntity<TEntity>(TEntity entity)
+        {
+            if (EntityClrType != typeof(TEntity))
+            {
+                throw new ArgumentException($"Invalid entity type, this primary key belongs to {EntityClrType.Name}");
+            }
+
+            return ((Func<TEntity, RedisValue>)_primaryKeyFromEntityFunc)(entity);
+        }
+
+        public RedisValue GetPrimaryKeyFromProperty<TProperty>(TProperty property)
+        {
+            if (PropertyClrType != typeof(TProperty))
+            {
+                throw new ArgumentException($"Invalid property type, this primary key belongs to {PropertyClrType.Name}");
+            }
+            return ((Func<TProperty, RedisValue>)_primaryKeyFromPropertyFunc)(property);
+        }
+
+        private void BuildGetPrimaryKeyFromEntity(Type entityType, string propertyName, Type propertyType)
         {
             // this should be in the format of either 
             // TEntity entity => (RedisValue)(entity.{IdProperty}.ToString(CultureInfo.InvariantCulture))
@@ -35,11 +67,11 @@ namespace RediSearchSharp.Internal
             var body = Expression.Convert(propertyValue, typeof(RedisValue));
 
             var funcOfEntityToRedisValue = typeof(Func<,>).MakeGenericType(entityType, typeof(RedisValue));
-            return Expression.Lambda(funcOfEntityToRedisValue, body, parameter);
+            _primaryKeyFromEntityFunc = Expression.Lambda(funcOfEntityToRedisValue, body, parameter).Compile();
         }
 
 
-        private LambdaExpression BuildGetPrimaryKeyFromIdProperty(Type propertyType)
+        private void BuildGetPrimaryKeyFromIdProperty(Type propertyType)
         {
             // this should be in the format of either 
             // TProperty property => (RedisValue)(property.ToString(CultureInfo.InvariantCulture))
@@ -58,10 +90,7 @@ namespace RediSearchSharp.Internal
             var body = Expression.Convert(propertyValue, typeof(RedisValue));
 
             var funcOfPropertyToRedisValue = typeof(Func<,>).MakeGenericType(propertyType, typeof(RedisValue));
-            return Expression.Lambda(funcOfPropertyToRedisValue, body, parameter);
+            _primaryKeyFromPropertyFunc = Expression.Lambda(funcOfPropertyToRedisValue, body, parameter).Compile();
         }
-
-        internal LambdaExpression GetPrimaryKeyFromEntity { get; } // this should be Func<TEntity, RedisValue>
-        internal LambdaExpression GetPrimaryKeyFromIdProperty { get; } // this should be a Func<TProperty, RedisValue>
     }
 }

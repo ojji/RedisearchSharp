@@ -65,7 +65,7 @@ namespace RediSearchSharp
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
 
             var indexName = schemaMetadata.IndexName;
-            var entityId = string.Concat(schemaMetadata.DocumentIdPrefix, schemaMetadata.GetPrimaryKeySelectorFromEntity()(entity));
+            var entityId = string.Concat(schemaMetadata.DocumentIdPrefix, schemaMetadata.PrimaryKey.GetPrimaryKeyFromEntity(entity));
 
             if (string.IsNullOrEmpty(language))
             {
@@ -95,42 +95,21 @@ namespace RediSearchSharp
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
+            var searchCommand = query.CreateSearchCommand();
+            var result = searchCommand.Retrieve<TEntity>(database, _serializer);
 
-            var result = (RedisResult[]) database.Execute("FT.SEARCH", BuildSearchDocumentParameters(query));
-
-            return SearchResult<TEntity>.LoadResults(
-                _serializer,
-                result,
-                query.Options.WithScores,
-                query.Options.WithPayloads);
+            return result;
         }
 
         public async Task<IEnumerable<SearchResult<TEntity>>> SearchAsync<TEntity>(Query<TEntity> query)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var database = _redisConnection.GetDatabase();
+            var searchCommand = query.CreateSearchCommand();
 
-            var result = (RedisResult[]) await database.ExecuteAsync("FT.SEARCH", BuildSearchDocumentParameters(query))
-                .ConfigureAwait(false);
+            var result = await searchCommand.RetrieveAsync<TEntity>(database, _serializer);
 
-            return SearchResult<TEntity>.LoadResults(
-                _serializer,
-                result,
-                query.Options.WithScores,
-                query.Options.WithPayloads);
-        }
-
-        private object[] BuildSearchDocumentParameters<TEntity>(Query<TEntity> query)
-            where TEntity : RedisearchSerializable<TEntity>, new()
-        {
-            var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
-            var parameters = new List<object>
-            {
-                schemaMetadata.IndexName
-            };
-
-            query.SerializeRedisArgs(parameters);
-            return parameters.ToArray();
+            return result;
         }
 
         public bool CreateIndex<TEntity>()

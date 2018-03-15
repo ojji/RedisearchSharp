@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using RediSearchSharp.Serialization;
 using StackExchange.Redis;
 
@@ -11,7 +12,31 @@ namespace RediSearchSharp.Query
         public double? Score { get; }
         public byte[] Payload { get; }
 
-        internal static IEnumerable<SearchResult<TEntity>> LoadResults(IRedisearchSerializer serializer, RedisResult[] response,
+        private SearchResult(TEntity entity, double? score, byte[] payload)
+        {
+            Entity = entity;
+            Score = score;
+            Payload = payload;
+        }
+
+        internal static IEnumerable<SearchResult<TEntity>> LoadMGetResults(IRedisearchSerializer serializer,
+            RedisResult[] response)
+        {
+            var results = new List<SearchResult<TEntity>>();
+            foreach (RedisValue[] entityAsFields in response.Where(r => !r.IsNull))
+            {
+                var entity = serializer.Deserialize<TEntity>(InitializeFieldsFrom(entityAsFields));
+
+                results.Add(new SearchResult<TEntity>(
+                    entity,
+                    null,
+                    null));
+            }
+
+            return results;
+        }
+
+        internal static IEnumerable<SearchResult<TEntity>> LoadSearchResults(IRedisearchSerializer serializer, RedisResult[] response,
             bool withScoresFlag, bool withPayloadsFlag)
         {
             int step = 2;
@@ -59,13 +84,6 @@ namespace RediSearchSharp.Query
             }
 
             return results;
-        }
-
-        private SearchResult(TEntity entity, double? score, byte[] payload)
-        {
-            Entity = entity;
-            Score = score;
-            Payload = payload;
         }
 
         private static Dictionary<string, RedisValue> InitializeFieldsFrom(RedisValue[] fields)
