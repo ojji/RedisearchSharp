@@ -14,6 +14,7 @@ namespace RediSearchSharp.Tests
     [TestFixture]
     public class RedisearchClientTests
     {
+        [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
         public class Car : RedisearchSerializable<Car>
         {
             public Guid Id { get; set; }
@@ -50,7 +51,8 @@ namespace RediSearchSharp.Tests
                 Assert.That(client.AddDocument(car), Is.True);
             }
 
-            public class UnexistingIndexObject : RedisearchSerializable<UnexistingIndexObject>
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
+            public class UnexistingIndexTest : RedisearchSerializable<UnexistingIndexTest>
             {
                 public int Id { get; set; }
             }
@@ -58,13 +60,13 @@ namespace RediSearchSharp.Tests
             [Test]
             public void Should_return_false_when_index_does_not_exist()
             {
-                var unexistingIndexObject = new UnexistingIndexObject
+                var unexistingIndexTest = new UnexistingIndexTest
                 {
                     Id = 1
                 };
 
                 var client = new RediSearchClient(Db);
-                Assert.That(client.AddDocument(unexistingIndexObject), Is.False);
+                Assert.That(client.AddDocument(unexistingIndexTest), Is.False);
             }
 
             [Test]
@@ -125,7 +127,8 @@ namespace RediSearchSharp.Tests
                 Assert.That(await client.AddDocumentAsync(car), Is.True);
             }
 
-            public class UnexistingIndexObject : RedisearchSerializable<UnexistingIndexObject>
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
+            public class UnexistingIndexTest : RedisearchSerializable<UnexistingIndexTest>
             {
                 public int Id { get; set; }
             }
@@ -133,13 +136,13 @@ namespace RediSearchSharp.Tests
             [Test]
             public async Task Should_return_false_when_index_does_not_exist()
             {
-                var unexistingIndexObject = new UnexistingIndexObject
+                var unexistingIndexTest = new UnexistingIndexTest
                 {
                     Id = 1
                 };
 
                 var client = new RediSearchClient(Db);
-                Assert.That(await client.AddDocumentAsync(unexistingIndexObject), Is.False);
+                Assert.That(await client.AddDocumentAsync(unexistingIndexTest), Is.False);
             }
 
             [Test]
@@ -599,11 +602,11 @@ namespace RediSearchSharp.Tests
         private IConnectionMultiplexer Connection { get; set; }
 
         protected void DropCreatedIndex<TEntity>()
-                where TEntity : RedisearchSerializable<TEntity>, new()
+            where TEntity : RedisearchSerializable<TEntity>, new()
         {
             var indexName = SchemaMetadata<TEntity>
                 .GetSchemaMetadata().IndexName;
-            Assert.That((string)Connection.GetDatabase().Execute("FT.DROP", indexName), Is.EqualTo("OK"));
+            Assert.That((string) Connection.GetDatabase().Execute("FT.DROP", indexName), Is.EqualTo("OK"));
         }
 
         protected class FieldInfo
@@ -612,6 +615,9 @@ namespace RediSearchSharp.Tests
             public string Type { get; }
             public string[] Properties { get; }
             public double? Weight { get; }
+
+            private const int PropertiesOffsetWhenNoWeightIsPresent = 3;
+            private const int PropertiesOffsetWhenWeightIsPresent = 5;
 
             public FieldInfo(RedisResult[] fieldInfoArray)
             {
@@ -624,7 +630,9 @@ namespace RediSearchSharp.Tests
                 Name = (string) fieldInfoArray[0];
                 Type = (string) fieldInfoArray[2];
                 bool hasWeight = Type == "TEXT";
-                int propertiesLength = hasWeight ? fieldInfoArray.Length - 5 : fieldInfoArray.Length - 3;
+                int propertiesLength = hasWeight
+                    ? fieldInfoArray.Length - PropertiesOffsetWhenWeightIsPresent
+                    : fieldInfoArray.Length - PropertiesOffsetWhenNoWeightIsPresent;
                 if (hasWeight)
                 {
                     Weight = (double) fieldInfoArray[4];
@@ -635,12 +643,12 @@ namespace RediSearchSharp.Tests
                 }
 
                 var propertiesAsRedisResult = new ArraySegment<RedisResult>(
-                    fieldInfoArray, 
-                    hasWeight ? 5 : 3,
+                    fieldInfoArray,
+                    hasWeight ? PropertiesOffsetWhenWeightIsPresent : PropertiesOffsetWhenNoWeightIsPresent,
                     propertiesLength
                 );
 
-                Properties = propertiesAsRedisResult.Select(rr => (string)rr).ToArray();
+                Properties = propertiesAsRedisResult.Select(rr => (string) rr).ToArray();
             }
         }
         
@@ -651,7 +659,7 @@ namespace RediSearchSharp.Tests
             Client = new RediSearchClient(Connection);
         }
 
-        public bool IsIndexCreated(string indexName)
+        protected bool IsIndexCreated(string indexName)
         {
             try
             {
@@ -680,12 +688,13 @@ namespace RediSearchSharp.Tests
             }
 
             var fieldInfos = (RedisResult[]) info[++fieldsIndex];
-            return fieldInfos.Select(fi => new FieldInfo((RedisResult[])fi)).ToArray();
+            return fieldInfos.Select(fi => new FieldInfo((RedisResult[]) fi)).ToArray();
         }
     }
 
     public class SearchFixture
     {
+        [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
         public class IgnoredPropertyTest : RedisearchSerializable<IgnoredPropertyTest>
         {
             public string Id { get; set; }
@@ -712,6 +721,7 @@ namespace RediSearchSharp.Tests
             {
                 Assert.That(Client.AddDocument(car), Is.True);
             }
+
             Assert.That(Client.AddDocument(new IgnoredPropertyTest()
             {
                 Id = "id1",
@@ -728,16 +738,18 @@ namespace RediSearchSharp.Tests
             Connection.Dispose();
         }
 
-        public void CreateIndex()
+        private void CreateIndex()
         {
             Assert.That(
-                (string)Connection.GetDatabase().Execute("FT.CREATE", "cars-index", "SCHEMA", "Id", "TEXT", "NOSTEM", "Make",
+                (string) Connection.GetDatabase().Execute("FT.CREATE", "cars-index", "SCHEMA", "Id", "TEXT", "NOSTEM",
+                    "Make",
                     "TEXT", "NOSTEM", "Model", "TEXT", "NOSTEM", "Year", "NUMERIC", "SORTABLE", "Country", "TEXT",
                     "NOSTEM", "Engine", "TEXT", "NOSTEM", "Class", "TEXT", "NOSTEM", "Price", "NUMERIC", "SORTABLE",
                     "Location", "GEO"), Is.EqualTo("OK"));
 
             Assert.That(
-                (string)Connection.GetDatabase().Execute("FT.CREATE", "ignoredpropertytests-index", "SCHEMA", "Id", "TEXT", "NOSTEM", "Property1",
+                (string) Connection.GetDatabase().Execute("FT.CREATE", "ignoredpropertytests-index", "SCHEMA", "Id",
+                    "TEXT", "NOSTEM", "Property1",
                     "TEXT", "NOSTEM", "Property2", "TEXT", "NOSTEM"), Is.EqualTo("OK"));
         }
 
@@ -747,7 +759,7 @@ namespace RediSearchSharp.Tests
                 (string) Connection.GetDatabase().Execute("FT.DROP", "cars-index"), Is.EqualTo("OK"));
 
             Assert.That(
-                (string)Connection.GetDatabase().Execute("FT.DROP", "ignoredpropertytests-index"), Is.EqualTo("OK"));
+                (string) Connection.GetDatabase().Execute("FT.DROP", "ignoredpropertytests-index"), Is.EqualTo("OK"));
         }
         
         private static List<RedisearchClientTests.Car> CarsDb => new List<RedisearchClientTests.Car>
@@ -762,7 +774,7 @@ namespace RediSearchSharp.Tests
                 Engine = "electric",
                 Class = "luxury-sedan",
                 Price = 124149,
-                Location = new GeoPosition(19.03991,47.49801)
+                Location = new GeoPosition(19.03991, 47.49801)
             },
             new RedisearchClientTests.Car
             {
@@ -774,7 +786,7 @@ namespace RediSearchSharp.Tests
                 Engine = "petrol",
                 Class = "luxury-coupe",
                 Price = 157506,
-                Location = new GeoPosition(20.3,48.21667)
+                Location = new GeoPosition(20.3, 48.21667)
             },
             new RedisearchClientTests.Car
             {
@@ -786,7 +798,7 @@ namespace RediSearchSharp.Tests
                 Engine = "petrol",
                 Class = "luxury-sedan",
                 Price = 197510,
-                Location = new GeoPosition(19.35515,47.59657)
+                Location = new GeoPosition(19.35515, 47.59657)
             },
             new RedisearchClientTests.Car
             {
@@ -798,7 +810,7 @@ namespace RediSearchSharp.Tests
                 Engine = "hybrid",
                 Class = "suv",
                 Price = 25995,
-                Location = new GeoPosition(19.03991,47.49801)
+                Location = new GeoPosition(19.03991, 47.49801)
             },
             new RedisearchClientTests.Car
             {
@@ -810,7 +822,7 @@ namespace RediSearchSharp.Tests
                 Engine = "diesel",
                 Class = "suv",
                 Price = 65022,
-                Location = new GeoPosition(21.71671,47.95539)
+                Location = new GeoPosition(21.71671, 47.95539)
             },
             new RedisearchClientTests.Car
             {
@@ -822,7 +834,7 @@ namespace RediSearchSharp.Tests
                 Engine = "diesel",
                 Class = "suv",
                 Price = 62710,
-                Location = new GeoPosition(18.23333,46.08333)
+                Location = new GeoPosition(18.23333, 46.08333)
             },
         };
     }

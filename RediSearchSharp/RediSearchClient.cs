@@ -20,7 +20,7 @@ namespace RediSearchSharp
         {
         }
 
-        internal RediSearchClient(IRedisearchSerializer redisearchSerializer, IConnectionMultiplexer redisConnection)
+        public RediSearchClient(IRedisearchSerializer redisearchSerializer, IConnectionMultiplexer redisConnection)
         {
             _serializer = redisearchSerializer ?? throw new ArgumentNullException(nameof(redisearchSerializer));
             _redisConnection = redisConnection ?? throw new ArgumentNullException(nameof(redisConnection));

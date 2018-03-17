@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using NUnit.Framework;
 using RediSearchSharp.Serialization;
@@ -29,12 +30,16 @@ namespace RediSearchSharp.Tests
         public Guid GuidProperty { get; set; }
     }
 
+    [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
     public class UnsupportedPropertyTestType1
     {
         public int IntegerProperty { get; set; }
         public object UnsupportedProperty { get; set; }
     }
 
+    [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
     public class UnsupportedPropertyTestType2
     {
         public int IntegerProperty { get; set; }
@@ -46,6 +51,7 @@ namespace RediSearchSharp.Tests
         public ICollection<string> StringCollection { get; set; }
     }
 
+    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
     public class CollectionOfStringsTestType2
     {
         public List<string> StringCollection { get; set; }
@@ -56,6 +62,7 @@ namespace RediSearchSharp.Tests
         public ICollection<Guid> GuidCollection { get; set; }
     }
 
+    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
     public class CollectionOfGuidTestType2
     {
         public List<Guid> GuidCollection { get; set; }
@@ -200,7 +207,7 @@ namespace RediSearchSharp.Tests
 
             var subject = new CollectionOfStringsTestType1
             {
-                StringCollection = new string[]
+                StringCollection = new[]
                 {
                     "item1",
                     "item2",
@@ -254,7 +261,7 @@ namespace RediSearchSharp.Tests
 
             var subject = new CollectionOfGuidTestType1
             {
-                GuidCollection = new Guid[]
+                GuidCollection = new[]
                 {
                     Guid.Empty,
                     Guid.Parse("11c43ee8-b9d3-4e51-b73f-bd9dda66e29c")
@@ -297,6 +304,7 @@ namespace RediSearchSharp.Tests
         }
 
         [Test]
+        [SuppressMessage("ReSharper", "RedundantCast")]
         public void FromRedis_should_return_an_object_of_a_supported_type_without_a_collection()
         {
             RedisMapper.RegisterType<TestType1>();

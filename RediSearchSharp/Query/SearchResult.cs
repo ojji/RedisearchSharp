@@ -62,7 +62,6 @@ namespace RediSearchSharp.Query
 
             for (int i = 1; i < response.Length; i += step)
             {
-                var id = (string)response[i];
                 double score = 1.0;
                 byte[] payload = null;
                 if (withScoresFlag)

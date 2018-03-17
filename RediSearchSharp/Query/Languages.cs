@@ -2,7 +2,7 @@
 {
     public class Languages
     {
-        public const string Default = Languages.English;
+        public const string Default = English;
         public const string Arabic = "arabic";
         public const string Danish = "danish";
         public const string Dutch = "dutch";
