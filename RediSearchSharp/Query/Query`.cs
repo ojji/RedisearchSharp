@@ -41,6 +41,24 @@ namespace RediSearchSharp.Query
         private SortingOrder _sortingOrder;
         private Paging _paging;
 
+        internal bool IsMGetQuery
+        {
+            get
+            {
+                if (_ids == null && _filters.Count == 0)
+                {
+                    throw new InvalidOperationException("This is an empty query.");
+                }
+
+                if (_ids != null && _filters.Count == 0)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
         public Query()
         {
             Options = new QueryOptions
@@ -360,22 +378,7 @@ namespace RediSearchSharp.Query
             return this;
         }
 
-        internal RetrieveEntitiesCommand CreateSearchCommand()
-        {
-            if (_ids == null && _filters.Count == 0)
-            {
-                throw new InvalidOperationException("This is an empty query.");
-            }
-
-            if (_ids != null && _filters.Count == 0)
-            {
-                return RetrieveEntitiesCommand.MGet(CreateMGetArgs());
-            }
-
-            return RetrieveEntitiesCommand.Search(CreateSearchArgs(), Options.WithScores, Options.WithPayloads);
-        }
-
-        private List<object> CreateMGetArgs()
+        internal List<object> CreateMGetArgs()
         {
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
             var args = new List<object>()
@@ -391,7 +394,7 @@ namespace RediSearchSharp.Query
             return args;
         }
 
-        private List<object> CreateSearchArgs()
+        internal List<object> CreateSearchArgs()
         {
             var schemaMetadata = SchemaMetadata<TEntity>.GetSchemaMetadata();
             var args = new List<object>
