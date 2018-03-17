@@ -42,11 +42,22 @@ namespace RediSearchSharp
             return await addCommand.ExecuteAsync(database).ConfigureAwait(false);
         }
 
+        public bool DeleteDocument<TEntity>(TEntity entity, bool deleteFromDatabase = true)
             where TEntity : RedisearchSerializable<TEntity>, new()
         {
+            var database = _redisConnection.GetDatabase();
+            var deleteCommand = DeleteCommand.Create(entity, deleteFromDatabase);
 
+            return deleteCommand.Execute(database);
+        }
 
+        public async Task<bool> DeleteDocumentAsync<TEntity>(TEntity entity, bool deleteFromDatabase = true)
+            where TEntity : RedisearchSerializable<TEntity>, new()
+        {
+            var database = _redisConnection.GetDatabase();
+            var deleteCommand = DeleteCommand.Create(entity, deleteFromDatabase);
 
+            return await deleteCommand.ExecuteAsync(database).ConfigureAwait(false);
         }
 
         public IEnumerable<SearchResult<TEntity>> Search<TEntity>(Query<TEntity> query)

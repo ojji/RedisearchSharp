@@ -551,6 +551,74 @@ namespace RediSearchSharp.Tests
         }
 
         [TestFixture]
+        public class DeleteDocument : DeleteDocumentFixture
+        {
+            [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+            private class DeleteTest : RedisearchSerializable<DeleteTest>
+            {
+                public int Id { get; set; }
+                public string Body { get; set; }
+            }
+
+            [SetUp]
+            public void CreateIndexAndAddDocument()
+            {
+                Assert.That((string) Db.GetDatabase().Execute("FT.CREATE",
+                                "deletetests-index",
+                                "SCHEMA",
+                                "Id",
+                                "NUMERIC",
+                                "Body",
+                                "TEXT") == "OK",
+                    Is.True);
+
+                Assert.That((string) Db.GetDatabase().Execute("FT.ADD",
+                                "deletetests-index",
+                                "deletetests:42",
+                                "1.0",
+                                "FIELDS",
+                                "Id",
+                                "42",
+                                "Body",
+                                "hello world") == "OK",
+                    Is.True);
+            }
+
+            [TearDown]
+            public void DropIndex()
+            {
+                Assert.That((string) Db.GetDatabase().Execute("FT.DROP",
+                                "deletetests-index") == "OK",
+                    Is.True);
+            }
+
+            [Test]
+            public void Should_return_true_when_successful()
+            {
+                var existingDocument = new DeleteTest
+                {
+                    Id = 42,
+                    Body = "hello world"
+                };
+
+                Assert.That(Client.DeleteDocument(existingDocument), Is.True);
+                Assert.That(Db.GetDatabase().KeyExists("deletetests:42"), Is.False);
+            }
+
+            [Test]
+            public void Should_return_false_when_the_document_does_not_exist()
+            {
+                var notExistingDocument = new DeleteTest
+                {
+                    Id = 666,
+                    Body = "hello world"
+                };
+
+                Assert.That(Client.DeleteDocument(notExistingDocument), Is.False);
+            }
+        }
+
+        [TestFixture]
         public class Search : SearchFixture
         {
             [Test]
@@ -922,5 +990,25 @@ namespace RediSearchSharp.Tests
             Assert.That((string) Db.GetDatabase().Execute("FT.DROP", "cars-index"), Is.EqualTo("OK"));
         }
     }
+
+    public class DeleteDocumentFixture
+    {
+        protected IConnectionMultiplexer Db { get; private set; }
+        protected RediSearchClient Client { get; private set; }
+
+        [OneTimeSetUp]
+        public void SetupConnection()
+        {
+            Db = ConnectionMultiplexer.Connect("127.0.0.1");
+            Client = new RediSearchClient(Db);
+        }
+
+        [OneTimeTearDown]
+        public void DisposeConnection()
+        {
+            Db.Dispose();
+        }
+    }
+
     #endregion
 }
