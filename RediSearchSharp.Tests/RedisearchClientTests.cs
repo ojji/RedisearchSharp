@@ -554,14 +554,65 @@ namespace RediSearchSharp.Tests
         public class Search : SearchFixture
         {
             [Test]
-            public void Search_by_id_sample()
+            public void Search_by_one_id_should_return_empty_if_it_doesnt_exist()
+            {
+                var query = new Query<Car>()
+                    .WithId(Guid.Empty)
+                    .Build();
+
+                var cars = Client.Search(query);
+                Assert.That(cars, Has.Exactly(0).Items);
+            }
+
+            [Test]
+            public void Search_by_one_id_should_return_the_document_if_it_exists()
             {
                 var query = new Query<Car>()
                     .WithId(Guid.Parse("11111111-1111-1111-1111-111111111111"))
                     .Build();
 
                 var cars = Client.Search(query);
-                Assert.That(cars, Has.One.Items);
+                Assert.That(cars, Has.Exactly(1).Items);
+            }
+
+            [Test]
+            public void Search_by_multiple_ids_should_return_the_existing_documents()
+            {
+                var query = new Query<Car>()
+                    .WithId(
+                        Guid.Empty, 
+                        Guid.Parse("11111111-1111-1111-1111-111111111111"), 
+                        Guid.Parse("22222222-2222-2222-2222-222222222222"))
+                    .Build();
+
+                var cars = Client.Search(query);
+                Assert.That(cars, Has.Exactly(2).Items);
+            }
+
+            [Test]
+            public void Search_by_id_should_throw_when_the_argument_type_is_not_the_id_type()
+            {   
+                Assert.Throws<ArgumentException>(() =>
+                {
+                    var query = new Query<Car>()
+                        .WithId("derp")
+                        .Build();
+
+                    Client.Search(query);
+                });
+            }
+
+            [Test]
+            public void Search_by_id_should_throw_when_the_argument_is_empty()
+            {
+                Assert.Throws<ArgumentException>(() =>
+                {
+                    var query = new Query<Car>()
+                        .WithId(new Guid[] { })
+                        .Build();
+
+                    Client.Search(query);
+                });
             }
 
             [Test]
@@ -569,7 +620,7 @@ namespace RediSearchSharp.Tests
             {
                 var query = new Query<Car>()
                     .WithId(
-                        Guid.Empty, 
+                        Guid.Empty,
                         Guid.Parse("11111111-1111-1111-1111-111111111111"),
                         Guid.Parse("44444444-4444-4444-4444-444444444444"))
                     .Where(c => c.Make)
