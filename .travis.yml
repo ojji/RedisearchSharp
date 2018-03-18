@@ -1,0 +1,13 @@
+dist: trusty
+sudo: required
+language: csharp
+mono: none
+dotnet: 2.1.101
+before_install:
+  - docker run -d -p 6379:6379 redislabs/redisearch:latest --protected-mode no --loadmodule /usr/lib/redis/modules/redisearch.so
+before_script:
+  - chmod +x scripts/build.sh
+  - chmod +x scripts/test.sh
+script:
+  - ./scripts/build.sh
+  - ./scripts/test.sh
