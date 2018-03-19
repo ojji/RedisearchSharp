@@ -8,7 +8,7 @@ addons:
     organization: "ojji-github"
     branches:
       - master
-      - solarcloud-branch
+      - sonarcloud-branch
 before_install:
   - docker run -d -p 6379:6379 redislabs/redisearch:latest --protected-mode no --loadmodule /usr/lib/redis/modules/redisearch.so
 before_script:
