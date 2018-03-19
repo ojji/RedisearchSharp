@@ -3,18 +3,14 @@ sudo: required
 language: csharp
 mono: none
 dotnet: 2.1.4
-addons:
-  sonarcloud:
-    organization: "ojji-github"
-    branches:
-      - master
-      - sonarcloud-branch
 before_install:
   - docker run -d -p 6379:6379 redislabs/redisearch:latest --protected-mode no --loadmodule /usr/lib/redis/modules/redisearch.so
 before_script:
+  - source scripts/install-sonarcloud.sh
   - chmod +x scripts/build.sh
   - chmod +x scripts/test.sh
 script:
+  - dotnet SonarScanner.MSBuild.dll begin /k:"ojji.redisearchsharp" /d:sonar.organization="ojji-github" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.login="$SONAR_TOKEN"
   - ./scripts/build.sh
-  - sonar-scanner
   - ./scripts/test.sh
+  - dotnet SonarScanner.MSBuild.dll end /d:sonar.login="$SONAR_TOKEN"
