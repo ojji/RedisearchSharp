@@ -11,7 +11,7 @@ before_script:
   - chmod +x scripts/test.sh
 script:
   - echo $PATH
-  - dotnet "$HOME/.sonarscanner/SonarScanner.MSBuild.dll" begin /k:"ojji.redisearchsharp" /d:sonar.organization="ojji-github" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.login="$SONAR_TOKEN" /d:sonar.cs.vstest.reportsPaths="$TEST_RESULTS_PATH/*.trx"
+  - dotnet "$HOME/.sonarscanner/SonarScanner.MSBuild.dll" begin /k:"ojji.redisearchsharp" /d:sonar.organization="ojji-github" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.login="$SONAR_TOKEN" /d:sonar.cs.vstest.reportsPaths="$TEST_RESULTS_PATH/*.trx" /d:sonar.branch.name="$TRAVIS_BRANCH"
   - ./scripts/build.sh
   - ./scripts/test.sh
   - dotnet "$HOME/.sonarscanner/SonarScanner.MSBuild.dll" end /d:sonar.login="$SONAR_TOKEN"
