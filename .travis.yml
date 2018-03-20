@@ -2,12 +2,10 @@ dist: trusty
 sudo: required
 language: csharp
 mono: none
-dotnet: 2.1.4
+dotnet: 2.1.101
 before_install:
   - docker run -d -p 6379:6379 redislabs/redisearch:latest --protected-mode no --loadmodule /usr/lib/redis/modules/redisearch.so
-before_script:
-  - chmod +x scripts/build.sh
-  - chmod +x scripts/test.sh
 script:
-  - ./scripts/build.sh
-  - ./scripts/test.sh
+  - dotnet clean -c Release -o ./dist
+  - dotnet build ./RediSearchSharp.sln -c Release -o ./dist
+  - dotnet test -c Release --no-build --no-restore ./RediSearchSharp.Test/RediSearchSharp.Test.csproj -o ./dist -r "$TEST_RESULTS_PATH"
